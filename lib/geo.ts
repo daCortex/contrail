@@ -1,0 +1,70 @@
+// Great-circle geometry helpers for the route map and distance/stat math.
+
+const R = 6371; // Earth radius, km
+const toRad = (d: number) => (d * Math.PI) / 180;
+const toDeg = (r: number) => (r * 180) / Math.PI;
+
+export interface LatLon {
+  lat: number;
+  lon: number;
+}
+
+/** Haversine great-circle distance in km. */
+export function haversineKm(a: LatLon, b: LatLon): number {
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Sample points along the great-circle arc between two coordinates.
+ * Returns segments split at the antimeridian so Leaflet polylines don't
+ * smear a horizontal line across the whole map.
+ */
+export function greatCircleSegments(a: LatLon, b: LatLon, steps = 64): LatLon[][] {
+  const lat1 = toRad(a.lat);
+  const lon1 = toRad(a.lon);
+  const lat2 = toRad(b.lat);
+  const lon2 = toRad(b.lon);
+
+  const d =
+    2 *
+    Math.asin(
+      Math.sqrt(
+        Math.sin((lat2 - lat1) / 2) ** 2 +
+          Math.cos(lat1) * Math.cos(lat2) * Math.sin((lon2 - lon1) / 2) ** 2
+      )
+    );
+  if (d === 0) return [[a, b]];
+
+  const pts: LatLon[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const f = i / steps;
+    const A = Math.sin((1 - f) * d) / Math.sin(d);
+    const B = Math.sin(f * d) / Math.sin(d);
+    const x = A * Math.cos(lat1) * Math.cos(lon1) + B * Math.cos(lat2) * Math.cos(lon2);
+    const y = A * Math.cos(lat1) * Math.sin(lon1) + B * Math.cos(lat2) * Math.sin(lon2);
+    const z = A * Math.sin(lat1) + B * Math.sin(lat2);
+    const lat = toDeg(Math.atan2(z, Math.sqrt(x * x + y * y)));
+    const lon = toDeg(Math.atan2(y, x));
+    pts.push({ lat, lon });
+  }
+
+  // Split where longitude jumps across the antimeridian.
+  const segments: LatLon[][] = [];
+  let current: LatLon[] = [pts[0]];
+  for (let i = 1; i < pts.length; i++) {
+    if (Math.abs(pts[i].lon - pts[i - 1].lon) > 180) {
+      segments.push(current);
+      current = [];
+    }
+    current.push(pts[i]);
+  }
+  segments.push(current);
+  return segments;
+}
