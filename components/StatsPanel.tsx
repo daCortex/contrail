@@ -1,7 +1,7 @@
 "use client";
 
 import { Stats, RankedItem, fmtDurationLong, fmtKm } from "@/lib/stats";
-import { findAirport } from "@/lib/airports";
+import { resolvePoint } from "@/lib/airports";
 
 /** ISO alpha-2 → flag emoji. */
 function flag(cc?: string): string {
@@ -162,7 +162,8 @@ function ExtremeCard({ title, flight }: { title: string; flight: Stats["longestF
             <span className="font-mono">{flight.to}</span>
           </div>
           <div className="mt-1 text-xs text-haze">
-            {findAirport(flight.from)?.city} → {findAirport(flight.to)?.city}
+            {resolvePoint(flight.from, flight.fromGeo)?.city} →{" "}
+            {resolvePoint(flight.to, flight.toGeo)?.city}
           </div>
           <div className="mt-3 flex gap-4 text-sm">
             <div>

@@ -11,11 +11,10 @@ const IFC_KEY = "contrail.ifc.v1";
 const DEFAULT_IFC: IFCConnection = {
   connected: false,
   username: "",
+  userId: "",
   autoSync: false,
   lastSync: null,
-  grade: null,
-  xp: null,
-  onlineFlights: null,
+  profile: null,
 };
 
 function uid(): string {
@@ -81,11 +80,13 @@ export function useFlightbook() {
 
   const addMany = useCallback((items: NewFlight[], source: "manual" | "ifc" = "ifc") => {
     setFlights((prev) => {
-      // De-dupe against existing entries on date+route+flightNumber.
-      const seen = new Set(prev.map((f) => `${f.date}|${f.from}|${f.to}|${f.flightNumber}`));
+      // De-dupe: prefer the stable IF flight id, else date+route+flightNumber.
+      const key = (f: { extId?: string; date: string; from: string; to: string; flightNumber: string }) =>
+        f.extId ? `ext:${f.extId}` : `${f.date}|${f.from}|${f.to}|${f.flightNumber}`;
+      const seen = new Set(prev.map(key));
       const fresh: Flight[] = [];
       for (const nf of items) {
-        const k = `${nf.date}|${nf.from}|${nf.to}|${nf.flightNumber}`;
+        const k = key(nf);
         if (seen.has(k)) continue;
         seen.add(k);
         fresh.push({
@@ -106,6 +107,8 @@ export function useFlightbook() {
         .map((f) => {
           if (f.id !== id) return f;
           const merged = { ...f, ...patch };
+          // Recompute from the route when possible; keep the stored value
+          // (e.g. an IFC import's server-computed distance) otherwise.
           merged.distanceKm = distanceFor(merged.from, merged.to) || merged.distanceKm;
           return merged;
         })

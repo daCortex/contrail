@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { IFCConnection, NewFlight } from "@/lib/types";
-import { fetchProfile, pullRecentFlights } from "@/lib/ifc";
+import { connectIFC, syncIFC } from "@/lib/ifc";
+import { fmtDurationLong } from "@/lib/stats";
+
+const GRADES = ["", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5"];
 
 export default function ConnectIFC({
   open,
@@ -20,6 +23,7 @@ export default function ConnectIFC({
   const [username, setUsername] = useState(ifc.username);
   const [busy, setBusy] = useState<"idle" | "connecting" | "syncing">("idle");
   const [msg, setMsg] = useState<string>("");
+  const [err, setErr] = useState<string>("");
 
   if (!open) return null;
 
@@ -27,56 +31,58 @@ export default function ConnectIFC({
     if (!username.trim()) return;
     setBusy("connecting");
     setMsg("");
+    setErr("");
     try {
-      const profile = await fetchProfile(username);
+      const profile = await connectIFC(username);
       setIfc((prev) => ({
         ...prev,
         connected: true,
         username: profile.username,
-        grade: profile.grade,
-        xp: profile.xp,
-        onlineFlights: profile.onlineFlights,
+        userId: profile.userId,
+        profile,
       }));
-      setMsg(`Linked @${profile.username} · Grade ${profile.grade}`);
-      // First link pulls an initial batch.
-      await sync(true);
-    } catch {
-      setMsg("Could not link that account. Check the username and try again.");
+      setMsg(`Linked @${profile.username}.`);
+      await sync(profile.userId, true);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not link that account.");
     } finally {
       setBusy("idle");
     }
   };
 
-  const sync = async (silent = false) => {
+  const sync = async (userId?: string, silent = false) => {
+    const uid = userId || ifc.userId;
+    if (!uid) return;
     setBusy("syncing");
-    if (!silent) setMsg("");
+    if (!silent) {
+      setMsg("");
+      setErr("");
+    }
     try {
-      const flights = await pullRecentFlights(6);
-      onImport(flights);
+      const r = await syncIFC(uid, 15);
+      onImport(r.flights);
       setIfc((prev) => ({ ...prev, lastSync: Date.now() }));
-      setMsg(`Imported ${flights.length} recent flights from your logbook.`);
-    } catch {
-      setMsg("Sync failed. Try again in a moment.");
+      setMsg(
+        r.count
+          ? `Imported ${r.count} flights — ${r.mapped} with a route to map (of ${r.totalCount.toLocaleString()} in your logbook).`
+          : "No flights found in your logbook yet."
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Sync failed.");
     } finally {
       setBusy("idle");
     }
   };
 
   const disconnect = () => {
-    setIfc((prev) => ({
-      ...prev,
-      connected: false,
-      autoSync: false,
-      grade: null,
-      xp: null,
-      onlineFlights: null,
-    }));
+    setIfc((prev) => ({ ...prev, connected: false, autoSync: false, userId: "", profile: null }));
     setMsg("");
+    setErr("");
   };
 
-  const toggleAuto = () => {
-    setIfc((prev) => ({ ...prev, autoSync: !prev.autoSync }));
-  };
+  const toggleAuto = () => setIfc((prev) => ({ ...prev, autoSync: !prev.autoSync }));
+
+  const p = ifc.profile;
 
   return (
     <div
@@ -94,8 +100,8 @@ export default function ConnectIFC({
           </button>
         </div>
         <p className="mb-5 text-sm text-haze">
-          Link your Infinite Flight Community (IFC) account to pull flights straight from your
-          in-app logbook — no manual entry needed.
+          Link your Infinite Flight Community (IFC) account to pull your real career stats and import
+          flights straight from your in-app logbook.
         </p>
 
         {!ifc.connected ? (
@@ -108,7 +114,7 @@ export default function ConnectIFC({
               <input
                 className="input flex-1 rounded-l-none px-3 py-2 text-sm"
                 value={username}
-                placeholder="your_callsign"
+                placeholder="your_ifc_username"
                 onChange={(e) => setUsername(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && connect()}
               />
@@ -120,6 +126,9 @@ export default function ConnectIFC({
                 {busy === "connecting" ? "Linking…" : "Connect"}
               </button>
             </div>
+            <p className="text-[11px] text-dim">
+              Use your community.infiniteflight.com username (the one on your IFC profile).
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -130,28 +139,39 @@ export default function ConnectIFC({
               <div className="flex-1">
                 <div className="flex items-center gap-2 text-sm font-semibold text-vapor">
                   @{ifc.username}
-                  <span className="chip rounded-full px-2 py-0.5 text-[10px]">
-                    Grade {ifc.grade}
-                  </span>
+                  {p?.grade ? (
+                    <span className="chip rounded-full px-2 py-0.5 text-[10px]">
+                      {GRADES[p.grade] || `Grade ${p.grade}`}
+                    </span>
+                  ) : null}
                 </div>
-                <div className="text-xs text-dim">
-                  {ifc.xp?.toLocaleString()} XP · {ifc.onlineFlights} online flights
-                </div>
+                {p?.virtualOrganization && (
+                  <div className="text-xs text-dim">{p.virtualOrganization}</div>
+                )}
               </div>
-              <button
-                onClick={disconnect}
-                className="text-xs text-rose hover:underline"
-              >
+              <button onClick={disconnect} className="text-xs text-rose hover:underline">
                 Disconnect
               </button>
             </div>
+
+            {/* Real career stats */}
+            {p && (
+              <div className="grid grid-cols-3 gap-2">
+                <Stat label="Flight time" value={p.flightTimeMin != null ? fmtDurationLong(p.flightTimeMin) : "—"} />
+                <Stat label="Landings" value={p.landingCount?.toLocaleString() ?? "—"} />
+                <Stat label="Online flights" value={p.onlineFlights?.toLocaleString() ?? "—"} />
+                <Stat label="XP" value={p.xp?.toLocaleString() ?? "—"} />
+                <Stat label="ATC ops" value={p.atcOperations?.toLocaleString() ?? "—"} />
+                <Stat label="Violations" value={p.violations?.toLocaleString() ?? "—"} />
+              </div>
+            )}
 
             {/* Auto-log toggle */}
             <div className="card-2 flex items-center justify-between p-4">
               <div className="pr-4">
                 <div className="text-sm font-medium text-vapor">Log flights automatically</div>
                 <div className="text-xs text-dim">
-                  New flights in your IFC logbook are imported on each sync.
+                  Re-import new logbook flights whenever you open Contrail.
                 </div>
               </div>
               <button
@@ -181,7 +201,7 @@ export default function ConnectIFC({
                 disabled={busy !== "idle"}
                 className="rounded-lg border border-[color:var(--color-trail)]/40 px-4 py-2 text-sm text-trail-soft hover:bg-[color:var(--color-trail)]/10 disabled:opacity-40"
               >
-                {busy === "syncing" ? "Syncing…" : "Sync now"}
+                {busy === "syncing" ? "Syncing…" : "Sync logbook"}
               </button>
             </div>
           </div>
@@ -192,12 +212,26 @@ export default function ConnectIFC({
             {msg}
           </div>
         )}
+        {err && (
+          <div className="mt-4 rounded-lg border border-[color:var(--color-rose)]/40 bg-[color:var(--color-rose)]/8 px-3 py-2 text-xs text-rose">
+            {err}
+          </div>
+        )}
 
         <p className="mt-5 text-[11px] leading-relaxed text-dim">
-          Contrail stores your logbook locally on this device. The Infinite Flight link reads your
-          public profile and recent flights; it never posts on your behalf.
+          Stats and flights come from the official Infinite Flight Live API. Your logbook is stored
+          locally on this device; Contrail never posts on your behalf.
         </p>
       </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="card-2 px-3 py-2">
+      <div className="truncate text-sm font-semibold text-vapor">{value}</div>
+      <div className="text-[10px] tracking-wide text-dim uppercase">{label}</div>
     </div>
   );
 }

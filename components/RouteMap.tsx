@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Map as LeafletMap, LayerGroup } from "leaflet";
 import { Flight } from "@/lib/types";
-import { findAirport } from "@/lib/airports";
+import { resolvePoint } from "@/lib/airports";
 import { greatCircleSegments } from "@/lib/geo";
 
 export default function RouteMap({ flights }: { flights: Flight[] }) {
@@ -67,23 +67,23 @@ export default function RouteMap({ flights }: { flights: Flight[] }) {
     const routeFreq = new Map<string, number>();
 
     for (const f of flights) {
-      const a = findAirport(f.from);
-      const b = findAirport(f.to);
+      const a = resolvePoint(f.from, f.fromGeo);
+      const b = resolvePoint(f.to, f.toGeo);
       if (!a || !b) continue;
       const rk = [f.from.toUpperCase(), f.to.toUpperCase()].sort().join("-");
       routeFreq.set(rk, (routeFreq.get(rk) || 0) + 1);
 
       for (const ap of [a, b]) {
-        const cur = airportFreq.get(ap.iata);
+        const cur = airportFreq.get(ap.code);
         if (cur) cur.n += 1;
-        else airportFreq.set(ap.iata, { lat: ap.lat, lon: ap.lon, code: ap.iata, city: ap.city, n: 1 });
+        else airportFreq.set(ap.code, { lat: ap.lat, lon: ap.lon, code: ap.code, city: ap.city, n: 1 });
       }
     }
 
     // Routes (great-circle arcs). Thicker = flown more often.
     for (const f of flights) {
-      const a = findAirport(f.from);
-      const b = findAirport(f.to);
+      const a = resolvePoint(f.from, f.fromGeo);
+      const b = resolvePoint(f.to, f.toGeo);
       if (!a || !b) continue;
       const rk = [f.from.toUpperCase(), f.to.toUpperCase()].sort().join("-");
       const weight = Math.min(1 + (routeFreq.get(rk) || 1) * 0.6, 4);

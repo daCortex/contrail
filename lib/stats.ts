@@ -1,5 +1,5 @@
 import { Flight } from "./types";
-import { Airport, findAirport } from "./airports";
+import { ResolvedPoint, resolvePoint } from "./airports";
 
 export interface RankedItem {
   key: string;
@@ -29,7 +29,7 @@ export interface Stats {
   topCountries: RankedItem[];
   topCabins: RankedItem[];
   byYear: { year: string; count: number; minutes: number; km: number }[];
-  visitedAirports: Airport[];
+  visitedAirports: ResolvedPoint[];
   earthCircuits: number; // total distance / earth circumference
   toMoon: number; // fraction of distance to the Moon
 }
@@ -57,7 +57,7 @@ export function computeStats(flights: Flight[]): Stats {
   const countries = new Map<string, { count: number; label: string; cc?: string }>();
   const cabins = new Map<string, { count: number; label: string }>();
   const yearMap = new Map<string, { count: number; minutes: number; km: number }>();
-  const visitedSet = new Map<string, Airport>();
+  const visitedSet = new Map<string, ResolvedPoint>();
 
   let totalDistanceKm = 0;
   let totalMinutes = 0;
@@ -85,11 +85,11 @@ export function computeStats(flights: Flight[]): Stats {
     if (f.airline) bump(airlines, f.airline, f.airline);
     if (f.cabin) bump(cabins, f.cabin, f.cabin);
 
-    const ap = findAirport(f.from);
-    const bp = findAirport(f.to);
+    const ap = resolvePoint(f.from, f.fromGeo);
+    const bp = resolvePoint(f.to, f.toGeo);
 
-    const depLabel = ap ? `${ap.iata} · ${ap.city}` : f.from;
-    const arrLabel = bp ? `${bp.iata} · ${bp.city}` : f.to;
+    const depLabel = ap ? `${ap.code} · ${ap.city}` : f.from;
+    const arrLabel = bp ? `${bp.code} · ${bp.city}` : f.to;
     if (f.from) bump(departures, f.from.toUpperCase(), depLabel, { sub: ap?.country, cc: ap?.cc });
     if (f.to) bump(arrivals, f.to.toUpperCase(), arrLabel, { sub: bp?.country, cc: bp?.cc });
     if (f.from) bump(airportVisits, f.from.toUpperCase(), depLabel, { sub: ap?.country, cc: ap?.cc });
@@ -102,11 +102,11 @@ export function computeStats(flights: Flight[]): Stats {
 
     if (ap) {
       bump(countries, ap.cc, ap.country, { cc: ap.cc });
-      visitedSet.set(ap.iata, ap);
+      visitedSet.set(ap.code, ap);
     }
     if (bp) {
       bump(countries, bp.cc, bp.country, { cc: bp.cc });
-      visitedSet.set(bp.iata, bp);
+      visitedSet.set(bp.code, bp);
     }
 
     const year = (f.date || "").slice(0, 4) || "—";

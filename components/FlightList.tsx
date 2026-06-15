@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Flight } from "@/lib/types";
-import { findAirport } from "@/lib/airports";
+import { resolvePoint } from "@/lib/airports";
 import { fmtDuration, fmtKm } from "@/lib/stats";
 
 export default function FlightList({
@@ -50,8 +50,8 @@ export default function FlightList({
       ) : (
         <ul className="space-y-2">
           {filtered.map((f) => {
-            const a = findAirport(f.from);
-            const b = findAirport(f.to);
+            const a = resolvePoint(f.from, f.fromGeo);
+            const b = resolvePoint(f.to, f.toGeo);
             return (
               <li key={f.id} className="card-2 group flex items-center gap-3 p-3">
                 <div className="hidden w-20 shrink-0 text-center sm:block">
@@ -66,7 +66,7 @@ export default function FlightList({
 
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <div className="text-center">
-                    <div className="font-mono text-sm font-semibold text-vapor">{f.from}</div>
+                    <div className="font-mono text-sm font-semibold text-vapor">{f.from || "—"}</div>
                     <div className="truncate text-[10px] text-dim">{a?.city ?? ""}</div>
                   </div>
                   <div className="flex flex-1 items-center gap-1 text-trail">
@@ -75,7 +75,7 @@ export default function FlightList({
                     <span className="h-px flex-1 bg-[color:var(--color-line)]" />
                   </div>
                   <div className="text-center">
-                    <div className="font-mono text-sm font-semibold text-vapor">{f.to}</div>
+                    <div className="font-mono text-sm font-semibold text-vapor">{f.to || "—"}</div>
                     <div className="truncate text-[10px] text-dim">{b?.city ?? ""}</div>
                   </div>
                 </div>

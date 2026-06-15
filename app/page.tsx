@@ -9,7 +9,7 @@ import FlightForm from "@/components/FlightForm";
 import FlightList from "@/components/FlightList";
 import ConnectIFC from "@/components/ConnectIFC";
 import StatsPanel from "@/components/StatsPanel";
-import { pullRecentFlights } from "@/lib/ifc";
+import { syncIFC } from "@/lib/ifc";
 
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
   ssr: false,
@@ -47,15 +47,19 @@ export default function Home() {
   // (rate-limited to once per 6h so it doesn't spam the logbook).
   useEffect(() => {
     if (!ready || autoRan.current) return;
-    if (ifc.connected && ifc.autoSync) {
+    if (ifc.connected && ifc.autoSync && ifc.userId) {
       const stale = !ifc.lastSync || Date.now() - ifc.lastSync > SIX_HOURS;
       if (stale) {
         autoRan.current = true;
         (async () => {
-          const fresh = await pullRecentFlights(4);
-          addMany(fresh);
-          setIfc((prev) => ({ ...prev, lastSync: Date.now() }));
-          flash(`Auto-logged ${fresh.length} new flights from Infinite Flight.`);
+          try {
+            const r = await syncIFC(ifc.userId, 15);
+            addMany(r.flights);
+            setIfc((prev) => ({ ...prev, lastSync: Date.now() }));
+            if (r.count) flash(`Synced ${r.count} flights from your Infinite Flight logbook.`);
+          } catch {
+            /* silent on auto-sync */
+          }
         })();
       }
     }

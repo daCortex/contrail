@@ -136,8 +136,32 @@ export const AIRPORTS: Airport[] = [
   { iata: "GUM", icao: "PGUM", name: "Antonio B. Won Pat Intl", city: "Hagåtña", country: "Guam", cc: "GU", lat: 13.4834, lon: 144.7959 },
 ];
 
+import { AirportLite } from "./types";
+
 const byIata = new Map(AIRPORTS.map((a) => [a.iata, a]));
 const byIcao = new Map(AIRPORTS.map((a) => [a.icao, a]));
+
+export interface ResolvedPoint {
+  code: string;
+  lat: number;
+  lon: number;
+  cc: string;
+  city: string;
+  country: string;
+}
+
+/**
+ * Resolve a flight endpoint to coordinates + country. Prefers geo data
+ * stored on the flight (IFC imports cover any world airport); falls back to
+ * the curated client database for manually-entered flights.
+ */
+export function resolvePoint(code: string, geo?: AirportLite): ResolvedPoint | undefined {
+  const c = (code || "").trim().toUpperCase();
+  if (geo) return { code: c, lat: geo.lat, lon: geo.lon, cc: geo.cc, city: geo.city, country: geo.country };
+  const a = findAirport(c);
+  if (!a) return undefined;
+  return { code: a.iata, lat: a.lat, lon: a.lon, cc: a.cc, city: a.city, country: a.country };
+}
 
 /** Look up an airport by IATA or ICAO code (case-insensitive). */
 export function findAirport(code: string): Airport | undefined {
