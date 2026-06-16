@@ -43,7 +43,7 @@ export default function FlightDetail({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-md"
+      className="fixed inset-0 z-[2000] flex items-start justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-md"
       onClick={onClose}
     >
       <div onClick={(e) => e.stopPropagation()} className="card my-8 w-full max-w-3xl overflow-hidden p-0">

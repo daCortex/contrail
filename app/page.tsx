@@ -310,7 +310,7 @@ export default function Home() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full border border-[color:var(--color-trail)]/40 bg-[color:var(--color-panel-2)] px-4 py-2 text-sm text-trail-soft shadow-2xl">
+        <div className="fixed bottom-5 left-1/2 z-[2100] -translate-x-1/2 rounded-full border border-[color:var(--color-trail)]/40 bg-[color:var(--color-panel-2)] px-4 py-2 text-sm text-trail-soft shadow-2xl">
           {toast}
         </div>
       )}

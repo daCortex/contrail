@@ -76,7 +76,7 @@ export default function YearInReview({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/85 p-4 backdrop-blur-md"
+      className="fixed inset-0 z-[2000] flex items-start justify-center overflow-y-auto bg-[color:var(--color-night)]/97 p-4"
       onClick={onClose}
     >
       <div onClick={(e) => e.stopPropagation()} className="card my-8 w-full max-w-3xl p-6">
