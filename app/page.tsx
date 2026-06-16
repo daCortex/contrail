@@ -13,6 +13,7 @@ import Achievements from "@/components/Achievements";
 import YearInReview from "@/components/YearInReview";
 import LivePanel from "@/components/LivePanel";
 import FlightDetail from "@/components/FlightDetail";
+import { SparkIcon, PlusIcon } from "@/components/icons";
 import { syncIFC } from "@/lib/ifc";
 
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
@@ -131,9 +132,9 @@ export default function Home() {
             {flights.length > 0 && (
               <button
                 onClick={() => setWrappedOpen(true)}
-                className="hidden rounded-full border border-[color:var(--color-amber)]/40 px-3 py-1.5 text-xs text-amber hover:bg-[color:var(--color-amber)]/10 sm:block"
+                className="hidden items-center gap-1.5 rounded-full border border-[color:var(--color-line)] px-3 py-1.5 text-xs text-haze hover:border-[color:var(--color-amber)]/40 hover:text-amber sm:flex"
               >
-                ✨ Wrapped
+                <SparkIcon size={14} /> Wrapped
               </button>
             )}
             {ifc.connected ? (
@@ -157,7 +158,7 @@ export default function Home() {
               onClick={openNew}
               className="btn-trail flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm"
             >
-              <span className="text-base leading-none">＋</span> Log flight
+              <PlusIcon size={16} strokeWidth={2.2} /> Log flight
             </button>
           </div>
         </div>
@@ -329,22 +330,23 @@ function Mini({ label, value }: { label: string; value: string }) {
 
 function Logo() {
   return (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden>
-      <circle cx="16" cy="16" r="15" stroke="var(--color-trail)" strokeWidth="1.5" opacity="0.4" />
-      <path
-        d="M5 22c6-1 9-3 12-7s5-7 9-9"
-        stroke="var(--color-trail)"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M21 6l5 0 0 5"
-        stroke="var(--color-amber)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="11" cy="19" r="2" fill="var(--color-amber)" />
+    <svg width="38" height="38" viewBox="0 0 38 38" fill="none" aria-hidden>
+      <defs>
+        <linearGradient id="contrail-mark" x1="8" y1="30" x2="30" y2="8" gradientUnits="userSpaceOnUse">
+          <stop stopColor="var(--color-trail)" />
+          <stop offset="1" stopColor="var(--color-trail-soft)" />
+        </linearGradient>
+        <linearGradient id="contrail-tile" x1="3" y1="3" x2="35" y2="35" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#151b2b" />
+          <stop offset="1" stopColor="#0d1119" />
+        </linearGradient>
+      </defs>
+      <rect x="2.5" y="2.5" width="33" height="33" rx="10" fill="url(#contrail-tile)" stroke="var(--color-line)" />
+      {/* vapor trail */}
+      <path d="M8 28C15 26 21 22 26.5 12.5" stroke="url(#contrail-mark)" strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M9.5 30.5C16 29 21.5 25.5 26 18" stroke="var(--color-trail)" strokeWidth="1.4" strokeLinecap="round" opacity="0.3" />
+      {/* jet at the head of the trail */}
+      <path d="M26.6 12.2 30 8.6l-1 5.2-4.4 1.1 2-2.7Z" fill="var(--color-trail-soft)" />
     </svg>
   );
 }

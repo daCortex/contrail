@@ -1,8 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type JSX } from "react";
 import { Flight } from "@/lib/types";
 import { computeStats, fmtDurationLong, fmtKm } from "@/lib/stats";
+import {
+  PlaneIcon, ClockIcon, GlobeIcon, FlagIcon, RouteIcon, RulerIcon,
+  LandingIcon, CalendarIcon, LeafIcon, CloseIcon,
+} from "./icons";
 
 function flag(cc?: string): string {
   if (!cc || cc.length !== 2) return "🏳️";
@@ -56,17 +60,17 @@ export default function YearInReview({
     return { label: d.toLocaleString(undefined, { month: "long", year: "numeric" }), n: bestN };
   })();
 
-  const cards: { emoji: string; big: string; label: string }[] = [
-    { emoji: "✈️", big: s.totalFlights.toLocaleString(), label: "flights flown" },
-    { emoji: "⏱️", big: fmtDurationLong(s.totalMinutes), label: "in the air" },
-    { emoji: "🌍", big: `${fmtKm(s.totalDistanceKm)} km`, label: `that's ${s.earthCircuits.toFixed(1)}× around the world` },
-    { emoji: "🗺️", big: String(s.uniqueCountries), label: `countries ${s.topCountries.slice(0, 6).map((c) => flag(c.cc)).join(" ")}` },
-    { emoji: "🛩️", big: s.topAircraft[0]?.label ?? "—", label: `your top aircraft · ${s.topAircraft[0]?.count ?? 0} flights` },
-    { emoji: "🛫", big: s.topRoutes[0]?.label ?? "—", label: `most-flown route · ${s.topRoutes[0]?.count ?? 0}×` },
-    { emoji: "📏", big: s.longestFlight ? `${s.longestFlight.from} → ${s.longestFlight.to}` : "—", label: `longest flight · ${s.longestFlight ? fmtKm(s.longestFlight.distanceKm) + " km" : ""}` },
-    { emoji: "🛬", big: s.totalLandings.toLocaleString(), label: "landings" },
-    ...(busiestMonth ? [{ emoji: "📆", big: busiestMonth.label, label: `busiest month · ${busiestMonth.n} flights` }] : []),
-    ...(s.co2Tonnes > 0 ? [{ emoji: "🛢️", big: `${Math.round(s.co2Tonnes)} t`, label: "CO₂ burned" }] : []),
+  const cards: { icon: JSX.Element; big: string; label: string }[] = [
+    { icon: <PlaneIcon size={20} />, big: s.totalFlights.toLocaleString(), label: "flights flown" },
+    { icon: <ClockIcon size={20} />, big: fmtDurationLong(s.totalMinutes), label: "in the air" },
+    { icon: <GlobeIcon size={20} />, big: `${fmtKm(s.totalDistanceKm)} km`, label: `that's ${s.earthCircuits.toFixed(1)}× around the world` },
+    { icon: <FlagIcon size={20} />, big: String(s.uniqueCountries), label: `countries ${s.topCountries.slice(0, 6).map((c) => flag(c.cc)).join(" ")}` },
+    { icon: <PlaneIcon size={20} />, big: s.topAircraft[0]?.label ?? "—", label: `your top aircraft · ${s.topAircraft[0]?.count ?? 0} flights` },
+    { icon: <RouteIcon size={20} />, big: s.topRoutes[0]?.label ?? "—", label: `most-flown route · ${s.topRoutes[0]?.count ?? 0}×` },
+    { icon: <RulerIcon size={20} />, big: s.longestFlight ? `${s.longestFlight.from} → ${s.longestFlight.to}` : "—", label: `longest flight · ${s.longestFlight ? fmtKm(s.longestFlight.distanceKm) + " km" : ""}` },
+    { icon: <LandingIcon size={20} />, big: s.totalLandings.toLocaleString(), label: "landings" },
+    ...(busiestMonth ? [{ icon: <CalendarIcon size={20} />, big: busiestMonth.label, label: `busiest month · ${busiestMonth.n} flights` }] : []),
+    ...(s.co2Tonnes > 0 ? [{ icon: <LeafIcon size={20} />, big: `${Math.round(s.co2Tonnes)} t`, label: "CO₂ burned" }] : []),
   ];
 
   const shareText =
@@ -100,9 +104,9 @@ export default function YearInReview({
             </select>
             <button
               onClick={onClose}
-              className="rounded-lg px-2 py-1 text-haze hover:bg-[color:var(--color-line)]"
+              className="rounded-lg p-1.5 text-haze hover:bg-[color:var(--color-line)]"
             >
-              ✕
+              <CloseIcon size={16} />
             </button>
           </div>
         </div>
@@ -115,7 +119,9 @@ export default function YearInReview({
               style={{ animationDelay: `${i * 60}ms` }}
             >
               <div className="flex h-full flex-col justify-between rounded-2xl bg-[color:var(--color-panel)] p-4">
-                <div className="text-2xl">{c.emoji}</div>
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[color:var(--color-vapor)]/8 text-vapor">
+                  {c.icon}
+                </div>
                 <div className="mt-3">
                   <div className="text-xl font-bold leading-tight text-vapor">{c.big}</div>
                   <div className="mt-1 text-xs text-haze">{c.label}</div>

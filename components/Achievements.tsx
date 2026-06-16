@@ -1,9 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type JSX } from "react";
 import { Flight } from "@/lib/types";
 import { Stats } from "@/lib/stats";
 import { evaluateAchievements, TIER_COLOR, EvaluatedAchievement } from "@/lib/achievements";
+import { RouteIcon, LayersIcon, ClockIcon, GlobeIcon, PlaneIcon, StarIcon, TrophyIcon } from "./icons";
+
+const CAT_ICON: Record<string, JSX.Element> = {
+  Distance: <RouteIcon size={18} />,
+  Volume: <LayersIcon size={18} />,
+  Time: <ClockIcon size={18} />,
+  World: <GlobeIcon size={18} />,
+  Fleet: <PlaneIcon size={18} />,
+  Special: <StarIcon size={18} />,
+};
 
 export default function Achievements({ stats, flights }: { stats: Stats; flights: Flight[] }) {
   const items = useMemo(() => evaluateAchievements(stats, flights), [stats, flights]);
@@ -13,11 +23,16 @@ export default function Achievements({ stats, flights }: { stats: Stats; flights
   return (
     <div className="space-y-6">
       <div className="card flex flex-wrap items-center justify-between gap-4 p-5">
-        <div>
-          <h2 className="text-lg font-semibold text-vapor">Achievements</h2>
-          <p className="text-sm text-haze">
-            {earned.length} of {items.length} unlocked
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--color-amber)]/12 text-amber">
+            <TrophyIcon size={20} />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-vapor">Achievements</h2>
+            <p className="text-sm text-haze">
+              {earned.length} of {items.length} unlocked
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="h-2 w-40 overflow-hidden rounded-full bg-[color:var(--color-line-soft)]">
@@ -60,13 +75,14 @@ function Badge({ a }: { a: EvaluatedAchievement }) {
     >
       <div className="flex items-start gap-3">
         <div
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-xl"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
           style={{
-            background: a.earned ? `${color}22` : "var(--color-deep)",
-            filter: a.earned ? "none" : "grayscale(1)",
+            background: a.earned ? `${color}1f` : "var(--color-deep)",
+            boxShadow: a.earned ? `inset 0 0 0 1px ${color}55` : "inset 0 0 0 1px var(--color-line)",
+            color: a.earned ? color : "var(--color-dim)",
           }}
         >
-          {a.emoji}
+          {CAT_ICON[a.category]}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">

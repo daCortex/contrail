@@ -2,6 +2,11 @@
 
 import { Stats, RankedItem, fmtDurationLong, fmtKm } from "@/lib/stats";
 import { resolvePoint } from "@/lib/airports";
+import {
+  PlaneIcon, ClockIcon, GlobeIcon, PinIcon, LayersIcon, FlagIcon,
+  MoonIcon, LandingIcon, LeafIcon, TargetIcon, RouteIcon,
+} from "./icons";
+import type { JSX } from "react";
 
 /** ISO alpha-2 → flag emoji. */
 function flag(cc?: string): string {
@@ -16,12 +21,12 @@ function flag(cc?: string): string {
 export default function StatsPanel({ stats }: { stats: Stats }) {
   const s = stats;
   const hero = [
-    { label: "Flights", value: s.totalFlights.toLocaleString(), accent: "text-trail-soft" },
-    { label: "Time aloft", value: fmtDurationLong(s.totalMinutes), accent: "text-amber" },
-    { label: "Distance", value: `${fmtKm(s.totalDistanceKm)} km`, accent: "text-sky" },
-    { label: "Countries", value: String(s.uniqueCountries), accent: "text-mint" },
-    { label: "Airports", value: String(s.uniqueAirports), accent: "text-vapor" },
-    { label: "Aircraft types", value: String(s.uniqueAircraft), accent: "text-rose" },
+    { label: "Flights", value: s.totalFlights.toLocaleString(), icon: <PlaneIcon size={16} /> },
+    { label: "Time aloft", value: fmtDurationLong(s.totalMinutes), icon: <ClockIcon size={16} /> },
+    { label: "Distance", value: `${fmtKm(s.totalDistanceKm)} km`, icon: <GlobeIcon size={16} /> },
+    { label: "Countries", value: String(s.uniqueCountries), icon: <FlagIcon size={16} /> },
+    { label: "Airports", value: String(s.uniqueAirports), icon: <PinIcon size={16} /> },
+    { label: "Aircraft types", value: String(s.uniqueAircraft), icon: <LayersIcon size={16} /> },
   ];
 
   return (
@@ -30,7 +35,8 @@ export default function StatsPanel({ stats }: { stats: Stats }) {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {hero.map((h) => (
           <div key={h.label} className="card p-4">
-            <div className={`text-2xl font-semibold ${h.accent}`}>{h.value}</div>
+            <div className="mb-3 text-trail-soft/80">{h.icon}</div>
+            <div className="text-2xl font-semibold tracking-tight text-vapor">{h.value}</div>
             <div className="mt-1 text-[11px] tracking-wide text-haze uppercase">{h.label}</div>
           </div>
         ))}
@@ -39,40 +45,40 @@ export default function StatsPanel({ stats }: { stats: Stats }) {
       {/* Fun distance facts */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <FactCard
-          emoji="🌍"
+          icon={<GlobeIcon size={18} />}
           title="Around the world"
           value={`${s.earthCircuits.toFixed(2)}×`}
           sub="times the equator"
         />
         <FactCard
-          emoji="🌙"
+          icon={<MoonIcon size={18} />}
           title="Toward the Moon"
           value={`${(s.toMoon * 100).toFixed(1)}%`}
           sub="of the 384,400 km trip"
         />
         <FactCard
-          emoji="🛬"
+          icon={<LandingIcon size={18} />}
           title="Landings"
           value={s.totalLandings.toLocaleString()}
           sub={`${s.uniqueRoutes} unique routes`}
         />
         {s.co2Tonnes > 0 && (
           <FactCard
-            emoji="🛢️"
+            icon={<LeafIcon size={18} />}
             title="CO₂ burned"
             value={`${Math.round(s.co2Tonnes).toLocaleString()} t`}
             sub={`${fmtKm(s.totalFuelKg)} kg of fuel`}
           />
         )}
         <FactCard
-          emoji="✈️"
+          icon={<RouteIcon size={18} />}
           title="Airlines flown"
           value={String(s.uniqueAirlines)}
           sub={`across ${s.uniqueAircraft} aircraft types`}
         />
         {s.topServers.length > 0 && (
           <FactCard
-            emoji="🎯"
+            icon={<TargetIcon size={18} />}
             title="Top server"
             value={s.topServers[0].label}
             sub={`${s.topServers[0].count} flights`}
@@ -104,23 +110,25 @@ export default function StatsPanel({ stats }: { stats: Stats }) {
 }
 
 function FactCard({
-  emoji,
+  icon,
   title,
   value,
   sub,
 }: {
-  emoji: string;
+  icon: JSX.Element;
   title: string;
   value: string;
   sub: string;
 }) {
   return (
     <div className="card flex items-center gap-4 p-4">
-      <div className="text-3xl">{emoji}</div>
-      <div>
-        <div className="text-xl font-semibold text-vapor">{value}</div>
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[color:var(--color-trail)]/10 text-trail-soft">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <div className="truncate text-xl font-semibold tracking-tight text-vapor">{value}</div>
         <div className="text-xs text-haze">{title}</div>
-        <div className="text-[11px] text-dim">{sub}</div>
+        <div className="truncate text-[11px] text-dim">{sub}</div>
       </div>
     </div>
   );
@@ -156,9 +164,9 @@ function RankCard({
                 <span className="font-mono text-xs text-trail-soft">{it.count}</span>
                 <span className="hidden text-[10px] text-dim sm:inline">{unit}</span>
               </div>
-              <div className="h-1.5 overflow-hidden rounded-full bg-[color:var(--color-line-soft)]">
+              <div className="h-1 overflow-hidden rounded-full bg-[color:var(--color-line-soft)]">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[color:var(--color-trail)] to-[color:var(--color-sky)]"
+                  className="h-full rounded-full bg-[color:var(--color-trail)]/70"
                   style={{ width: `${(it.count / max) * 100}%` }}
                 />
               </div>

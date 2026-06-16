@@ -1,5 +1,17 @@
 # Changelog
 
+**v1.7 — June 16, 2026**
+
+✨ **New**
+- A refined visual identity — new logo, the Inter typeface, a deeper and more premium colour palette, and a clean custom icon set replacing emoji throughout
+- Logbook pagination — long logbooks now load in pages with a "Showing 50 of 235" count and Show more / Show all
+
+🐞 **Fixed**
+- The "Log flights automatically" toggle no longer overflows its track when switched on
+- Logbook rows now align correctly when a flight has no departure or arrival airport set
+
+---
+
 **v1.6 — June 16, 2026**
 
 🐞 **Fixed**

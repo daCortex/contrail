@@ -178,14 +178,14 @@ export default function ConnectIFC({
                 role="switch"
                 aria-checked={ifc.autoSync}
                 onClick={toggleAuto}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                  ifc.autoSync ? "bg-[color:var(--color-trail)]" : "bg-[color:var(--color-line)]"
-                }`}
+                className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full px-0.5 transition-colors"
+                style={{
+                  backgroundColor: ifc.autoSync ? "var(--color-trail)" : "var(--color-line)",
+                }}
               >
                 <span
-                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                    ifc.autoSync ? "translate-x-[22px]" : "translate-x-0.5"
-                  }`}
+                  className="h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200"
+                  style={{ transform: ifc.autoSync ? "translateX(20px)" : "translateX(0)" }}
                 />
               </button>
             </div>

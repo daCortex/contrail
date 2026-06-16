@@ -7,25 +7,25 @@
 ------------------------------------------------------------------- */
 
 @theme {
-  --color-night: #070b14;
-  --color-deep: #0c1322;
-  --color-panel: #111a2e;
-  --color-panel-2: #16223a;
-  --color-line: #233148;
-  --color-line-soft: #1b273c;
+  --color-night: #060810; /* deep ink — page canvas */
+  --color-deep: #0a0d17;
+  --color-panel: #0f1320; /* elevated surface */
+  --color-panel-2: #141926;
+  --color-line: #212838; /* hairline border */
+  --color-line-soft: #181d2a;
 
-  --color-vapor: #e8eef7; /* primary text — contrail white */
-  --color-haze: #9fb0c8; /* secondary text */
-  --color-dim: #64748b; /* muted */
+  --color-vapor: #f1f4fa; /* primary text */
+  --color-haze: #a7b2c5; /* secondary text */
+  --color-dim: #62708a; /* muted */
 
-  --color-trail: #38d6e0; /* cyan vapor accent */
-  --color-trail-soft: #5fe3ec;
-  --color-sky: #4f8cff; /* route blue */
-  --color-amber: #f5b942; /* highlight */
-  --color-rose: #f2618c;
-  --color-mint: #4fd6a8;
+  --color-trail: #34d0db; /* refined cyan — the single signature accent */
+  --color-trail-soft: #6fe0e8;
+  --color-sky: #5b8cf5; /* route blue, used sparingly */
+  --color-amber: #e9b864; /* warm highlight, desaturated */
+  --color-rose: #e8718f;
+  --color-mint: #57cfa4;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 }
 
@@ -70,30 +70,40 @@ body {
 }
 
 .card {
-  background: var(--color-panel);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-vapor) 2.5%, transparent), transparent 120px),
+    var(--color-panel);
   border: 1px solid var(--color-line);
-  border-radius: 16px;
+  border-radius: 18px;
+  box-shadow: 0 1px 0 0 color-mix(in srgb, var(--color-vapor) 4%, transparent) inset,
+    0 8px 30px -18px rgba(0, 0, 0, 0.8);
 }
 
 .card-2 {
   background: var(--color-panel-2);
   border: 1px solid var(--color-line);
-  border-radius: 12px;
+  border-radius: 14px;
 }
 
 .chip {
-  background: color-mix(in srgb, var(--color-trail) 12%, transparent);
+  background: color-mix(in srgb, var(--color-trail) 10%, transparent);
   color: var(--color-trail-soft);
-  border: 1px solid color-mix(in srgb, var(--color-trail) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-trail) 26%, transparent);
 }
 
 .btn-trail {
-  background: linear-gradient(135deg, var(--color-trail), var(--color-sky));
-  color: #04121a;
+  background: linear-gradient(180deg, var(--color-trail-soft), var(--color-trail));
+  color: #03171b;
   font-weight: 600;
+  box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--color-trail) 60%, transparent);
 }
 .btn-trail:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.05);
+}
+
+/* Subtle hairline divider helper */
+.hairline {
+  border-color: var(--color-line);
 }
 
 .input {
