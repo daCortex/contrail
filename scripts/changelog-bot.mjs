@@ -72,10 +72,12 @@ if (!blocks.length) {
   process.exit(0);
 }
 
+const DISCORD_INVITE = process.env.DISCORD_INVITE || "https://discord.gg/f4rhKFa6MD";
 const message =
   `**${version} — ${date}**\n\n` +
   blocks.join("\n\n") +
-  `\n\nFull details on bigger releases go in **#announcements**.`;
+  `\n\nFull details on bigger releases go in **#announcements**.` +
+  `\n💬 Community & support: ${DISCORD_INVITE}`;
 
 console.log(message);
 
