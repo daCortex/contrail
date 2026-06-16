@@ -211,6 +211,10 @@ export default function Home() {
 
       <footer className="mt-12 text-center text-[11px] text-dim">
         Contrail · flights stored locally on this device · {flights.length} logged
+        <span className="mx-1.5 opacity-40">·</span>
+        <a href="https://discord.gg/f4rhKFa6MD" target="_blank" rel="noreferrer" className="text-trail-soft hover:text-vapor">
+          Community &amp; support
+        </a>
       </footer>
 
       {/* Modals */}
