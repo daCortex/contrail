@@ -1,0 +1,32 @@
+name: Changelog
+
+# Runs on every push to main. Builds a changelog from the new commits in the
+# house format, posts it to Discord (if CHANGELOG_WEBHOOK is set as a repo
+# secret), and stamps a vX.Y tag. Tags don't re-trigger this, so no loop.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: changelog-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  changelog:
+    if: ${{ !contains(github.event.head_commit.message, '[skip changelog]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history + tags so the bot can diff since the last release
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Generate, post & tag changelog
+        env:
+          CHANGELOG_WEBHOOK: ${{ secrets.CHANGELOG_WEBHOOK }}
+        run: node scripts/changelog-bot.mjs --post --tag
