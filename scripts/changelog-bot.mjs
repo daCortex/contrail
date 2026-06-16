@@ -91,16 +91,22 @@ if (args.has("--write")) {
   console.error(`\n→ wrote ${path}`);
 }
 
-/* ---- optional: post to Discord ---- */
+/* ---- optional: post to Discord as a rich embed ---- */
 if (args.has("--post")) {
   const url = process.env.CHANGELOG_WEBHOOK;
   if (!url) {
     console.error("\n→ CHANGELOG_WEBHOOK not set; skipping Discord post.");
   } else {
+    const embed = {
+      title: `${version} — ${date}`,
+      description: (blocks.join("\n\n") + `\n\n💬 **Community & support:** ${DISCORD_INVITE}`).slice(0, 4000),
+      color: Number(process.env.EMBED_COLOR || 0xc9a84c),
+      footer: { text: "Full details on bigger releases go in #announcements" },
+    };
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: message.slice(0, 1990), allowed_mentions: { parse: [] } }),
+      body: JSON.stringify({ embeds: [embed], allowed_mentions: { parse: [] } }),
     });
     console.error(res.ok ? "\n→ posted to Discord ✓" : `\n→ Discord post failed: ${res.status}`);
   }
