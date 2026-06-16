@@ -48,8 +48,7 @@ export default function GlobeMap({
       });
       const { w, h } = size();
 
-      // Factory form — Globe()(domElement).
-      const globe = Globe()(el)
+      const globe = new Globe(el)
         .width(w)
         .height(h)
         .backgroundColor("rgba(0,0,0,0)")
