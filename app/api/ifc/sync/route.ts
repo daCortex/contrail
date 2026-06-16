@@ -62,6 +62,9 @@ export async function POST(req: Request) {
       seat: "",
       cabin: "",
       note: f.server ? `${f.server} · Infinite Flight` : "Infinite Flight",
+      fuelKg: f.fuelUsedKg != null ? Math.round(f.fuelUsedKg) : undefined,
+      server: f.server || undefined,
+      landings: f.landingCount ?? undefined,
     });
   }
 

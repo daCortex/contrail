@@ -9,6 +9,8 @@ import FlightForm from "@/components/FlightForm";
 import FlightList from "@/components/FlightList";
 import ConnectIFC from "@/components/ConnectIFC";
 import StatsPanel from "@/components/StatsPanel";
+import Achievements from "@/components/Achievements";
+import YearInReview from "@/components/YearInReview";
 import { syncIFC } from "@/lib/ifc";
 
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
@@ -17,8 +19,15 @@ const RouteMap = dynamic(() => import("@/components/RouteMap"), {
     <div className="flex h-full items-center justify-center text-sm text-dim">Loading map…</div>
   ),
 });
+const CountriesMap = dynamic(() => import("@/components/CountriesMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center text-sm text-dim">Loading map…</div>
+  ),
+});
 
-type Tab = "map" | "stats" | "logbook";
+type Tab = "map" | "stats" | "awards" | "logbook";
+type MapMode = "routes" | "countries";
 const SIX_HOURS = 6 * 60 * 60 * 1000;
 
 export default function Home() {
@@ -35,6 +44,8 @@ export default function Home() {
   } = useFlightbook();
 
   const [tab, setTab] = useState<Tab>("map");
+  const [mapMode, setMapMode] = useState<MapMode>("routes");
+  const [wrappedOpen, setWrappedOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Flight | null>(null);
   const [ifcOpen, setIfcOpen] = useState(false);
@@ -108,6 +119,14 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2">
+            {flights.length > 0 && (
+              <button
+                onClick={() => setWrappedOpen(true)}
+                className="hidden rounded-full border border-[color:var(--color-amber)]/40 px-3 py-1.5 text-xs text-amber hover:bg-[color:var(--color-amber)]/10 sm:block"
+              >
+                ✨ Wrapped
+              </button>
+            )}
             {ifc.connected ? (
               <button
                 onClick={() => setIfcOpen(true)}
@@ -140,6 +159,7 @@ export default function Home() {
             [
               ["map", "Map"],
               ["stats", "Statistics"],
+              ["awards", "Awards"],
               ["logbook", "Logbook"],
             ] as [Tab, string][]
           ).map(([t, label]) => (
@@ -169,8 +189,38 @@ export default function Home() {
       {/* Tab content */}
       {tab === "map" && (
         <div className="space-y-6">
-          <div className="card h-[60vh] min-h-[420px] overflow-hidden p-1.5">
-            <RouteMap flights={flights} />
+          <div className="relative">
+            {/* Routes / Countries toggle */}
+            <div className="absolute left-3 top-3 z-[1000] flex rounded-full border border-[color:var(--color-line)] bg-[color:var(--color-night)]/85 p-0.5 backdrop-blur">
+              {(
+                [
+                  ["routes", "Routes"],
+                  ["countries", "Countries"],
+                ] as [MapMode, string][]
+              ).map(([m, label]) => (
+                <button
+                  key={m}
+                  onClick={() => setMapMode(m)}
+                  className={`rounded-full px-3 py-1 text-xs transition-colors ${
+                    mapMode === m ? "bg-[color:var(--color-trail)] text-[#04121a]" : "text-haze"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {mapMode === "countries" && (
+              <div className="absolute right-3 top-3 z-[1000] rounded-full border border-[color:var(--color-line)] bg-[color:var(--color-night)]/85 px-3 py-1 text-xs text-trail-soft backdrop-blur">
+                {stats.uniqueCountries} / 195 countries
+              </div>
+            )}
+            <div className="card h-[60vh] min-h-[420px] overflow-hidden p-1.5">
+              {mapMode === "routes" ? (
+                <RouteMap flights={flights} />
+              ) : (
+                <CountriesMap visited={stats.visitedCC} />
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
             <StatsPanel stats={stats} />
@@ -182,6 +232,8 @@ export default function Home() {
       )}
 
       {tab === "stats" && <StatsPanel stats={stats} />}
+
+      {tab === "awards" && <Achievements stats={stats} flights={flights} />}
 
       {tab === "logbook" && (
         <div className="space-y-4">
@@ -231,6 +283,7 @@ export default function Home() {
         setIfc={setIfc}
         onImport={(fl) => addMany(fl)}
       />
+      <YearInReview open={wrappedOpen} onClose={() => setWrappedOpen(false)} flights={flights} />
 
       {/* Toast */}
       {toast && (

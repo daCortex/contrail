@@ -28,8 +28,13 @@ export interface Stats {
   topRoutes: RankedItem[];
   topCountries: RankedItem[];
   topCabins: RankedItem[];
+  topServers: RankedItem[];
   byYear: { year: string; count: number; minutes: number; km: number }[];
   visitedAirports: ResolvedPoint[];
+  visitedCC: string[]; // ISO-A2 codes for the choropleth
+  totalLandings: number;
+  totalFuelKg: number;
+  co2Tonnes: number;
   earthCircuits: number; // total distance / earth circumference
   toMoon: number; // fraction of distance to the Moon
 }
@@ -56,11 +61,15 @@ export function computeStats(flights: Flight[]): Stats {
   const routes = new Map<string, { count: number; label: string }>();
   const countries = new Map<string, { count: number; label: string; cc?: string }>();
   const cabins = new Map<string, { count: number; label: string }>();
+  const servers = new Map<string, { count: number; label: string }>();
   const yearMap = new Map<string, { count: number; minutes: number; km: number }>();
   const visitedSet = new Map<string, ResolvedPoint>();
+  const ccSet = new Set<string>();
 
   let totalDistanceKm = 0;
   let totalMinutes = 0;
+  let totalLandings = 0;
+  let totalFuelKg = 0;
   let longest: Flight | null = null;
   let shortest: Flight | null = null;
 
@@ -78,12 +87,15 @@ export function computeStats(flights: Flight[]): Stats {
   for (const f of flights) {
     totalDistanceKm += f.distanceKm || 0;
     totalMinutes += f.durationMin || 0;
+    totalLandings += f.landings || 0;
+    totalFuelKg += f.fuelKg || 0;
     if (!longest || f.distanceKm > longest.distanceKm) longest = f;
     if (!shortest || f.distanceKm < shortest.distanceKm) shortest = f;
 
     if (f.aircraft) bump(aircraft, f.aircraft, f.aircraft);
     if (f.airline) bump(airlines, f.airline, f.airline);
     if (f.cabin) bump(cabins, f.cabin, f.cabin);
+    if (f.server) bump(servers, f.server, f.server);
 
     const ap = resolvePoint(f.from, f.fromGeo);
     const bp = resolvePoint(f.to, f.toGeo);
@@ -103,10 +115,12 @@ export function computeStats(flights: Flight[]): Stats {
     if (ap) {
       bump(countries, ap.cc, ap.country, { cc: ap.cc });
       visitedSet.set(ap.code, ap);
+      if (ap.cc) ccSet.add(ap.cc);
     }
     if (bp) {
       bump(countries, bp.cc, bp.country, { cc: bp.cc });
       visitedSet.set(bp.code, bp);
+      if (bp.cc) ccSet.add(bp.cc);
     }
 
     const year = (f.date || "").slice(0, 4) || "—";
@@ -140,8 +154,13 @@ export function computeStats(flights: Flight[]): Stats {
     topRoutes: rank(routes),
     topCountries: rank(countries, 12),
     topCabins: rank(cabins, 4),
+    topServers: rank(servers, 4),
     byYear,
     visitedAirports: [...visitedSet.values()],
+    visitedCC: [...ccSet],
+    totalLandings,
+    totalFuelKg,
+    co2Tonnes: (totalFuelKg * 3.16) / 1000, // Jet-A ≈ 3.16 kg CO₂ per kg fuel
     earthCircuits: totalDistanceKm / EARTH_CIRCUMFERENCE_KM,
     toMoon: totalDistanceKm / DISTANCE_TO_MOON_KM,
   };

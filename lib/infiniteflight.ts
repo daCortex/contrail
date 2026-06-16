@@ -64,6 +64,9 @@ export interface IfFlight {
   destinationAirport: string | null; // ICAO
   aircraftId: string | null;
   liveryId: string | null;
+  dayTime?: number | null;
+  nightTime?: number | null;
+  fuelUsedKg?: number | null;
 }
 
 interface FlightsPage {

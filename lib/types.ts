@@ -25,6 +25,9 @@ export interface Flight {
   seat: string;
   cabin: "Economy" | "Premium" | "Business" | "First" | "";
   note: string;
+  fuelKg?: number; // fuel burned (from IF logbook), for CO₂ stats
+  server?: string; // IF server: Expert / Training / Casual / Solo
+  landings?: number; // landing count for this flight (from IF logbook)
   source: "manual" | "ifc"; // how the entry was created
   extId?: string; // stable Infinite Flight flight id, for de-duping re-syncs
   createdAt: number;

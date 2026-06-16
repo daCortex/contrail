@@ -52,10 +52,32 @@ export default function StatsPanel({ stats }: { stats: Stats }) {
         />
         <FactCard
           emoji="🛬"
-          title="Unique routes"
-          value={String(s.uniqueRoutes)}
-          sub={`${s.uniqueAirlines} airlines flown`}
+          title="Landings"
+          value={s.totalLandings.toLocaleString()}
+          sub={`${s.uniqueRoutes} unique routes`}
         />
+        {s.co2Tonnes > 0 && (
+          <FactCard
+            emoji="🛢️"
+            title="CO₂ burned"
+            value={`${Math.round(s.co2Tonnes).toLocaleString()} t`}
+            sub={`${fmtKm(s.totalFuelKg)} kg of fuel`}
+          />
+        )}
+        <FactCard
+          emoji="✈️"
+          title="Airlines flown"
+          value={String(s.uniqueAirlines)}
+          sub={`across ${s.uniqueAircraft} aircraft types`}
+        />
+        {s.topServers.length > 0 && (
+          <FactCard
+            emoji="🎯"
+            title="Top server"
+            value={s.topServers[0].label}
+            sub={`${s.topServers[0].count} flights`}
+          />
+        )}
       </div>
 
       {/* Ranked lists */}
