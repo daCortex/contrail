@@ -27,9 +27,15 @@ const CountriesMap = dynamic(() => import("@/components/CountriesMap"), {
     <div className="flex h-full items-center justify-center text-sm text-dim">Loading map…</div>
   ),
 });
+const GlobeMap = dynamic(() => import("@/components/GlobeMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full items-center justify-center text-sm text-dim">Loading globe…</div>
+  ),
+});
 
 type Tab = "map" | "stats" | "awards" | "logbook";
-type MapMode = "routes" | "countries";
+type MapMode = "routes" | "globe" | "countries";
 const SIX_HOURS = 6 * 60 * 60 * 1000;
 
 export default function Home() {
@@ -205,6 +211,7 @@ export default function Home() {
               {(
                 [
                   ["routes", "Routes"],
+                  ["globe", "Globe"],
                   ["countries", "Countries"],
                 ] as [MapMode, string][]
               ).map(([m, label]) => (
@@ -225,11 +232,9 @@ export default function Home() {
               </div>
             )}
             <div className="card h-[60vh] min-h-[420px] overflow-hidden p-1.5">
-              {mapMode === "routes" ? (
-                <RouteMap flights={flights} />
-              ) : (
-                <CountriesMap visited={stats.visitedCC} />
-              )}
+              {mapMode === "routes" && <RouteMap flights={flights} />}
+              {mapMode === "globe" && <GlobeMap flights={flights} visited={stats.visitedCC} />}
+              {mapMode === "countries" && <CountriesMap visited={stats.visitedCC} />}
             </div>
           </div>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">

@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "globe.gl": "^2.46.1",
     "leaflet": "^1.9.4",
     "next": "16.2.6",
     "react": "19.2.4",
