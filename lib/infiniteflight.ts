@@ -152,3 +152,116 @@ export async function resolveAircraft(
     (aircraftId && byAc?.get(aircraftId)) || (liveryId && byAc?.get(liveryId)) || null;
   return { aircraftName: name, liveryName: null };
 }
+
+/* ---- Live sessions & in-progress flights ---- */
+
+export interface IfSession {
+  id: string;
+  name: string;
+  userCount: number;
+  type: number;
+}
+
+export interface IfLiveFlight {
+  flightId: string;
+  userId: string;
+  username: string | null;
+  callsign: string | null;
+  latitude: number;
+  longitude: number;
+  altitude: number;
+  speed: number;
+  heading: number;
+  track: number;
+  aircraftId: string | null;
+  liveryId: string | null;
+  virtualOrganization: string | null;
+}
+
+export async function getSessions(): Promise<IfSession[]> {
+  return (await ifFetch<IfSession[]>("/sessions")) ?? [];
+}
+
+export async function getSessionFlights(sessionId: string): Promise<IfLiveFlight[]> {
+  return (await ifFetch<IfLiveFlight[]>(`/sessions/${sessionId}/flights`)) ?? [];
+}
+
+export interface LiveFlightHit extends IfLiveFlight {
+  sessionId: string;
+  sessionName: string;
+}
+
+/** Find a user's in-progress flight across all live sessions (null if not flying). */
+export async function findLiveFlight(userId: string): Promise<LiveFlightHit | null> {
+  const sessions = await getSessions();
+  const results = await Promise.all(
+    sessions.map(async (s) => {
+      const flights = await getSessionFlights(s.id);
+      const hit = flights.find((f) => f.userId === userId);
+      return hit ? { ...hit, sessionId: s.id, sessionName: s.name } : null;
+    })
+  );
+  return results.find(Boolean) ?? null;
+}
+
+export interface LatLon {
+  lat: number;
+  lon: number;
+}
+
+export interface FlightRoute {
+  origin: string | null;
+  destination: string | null;
+  plannedPath: LatLon[];
+}
+
+interface FplItem {
+  name: string | null;
+  identifier: string | null;
+  type: number;
+  location: { latitude: number; longitude: number } | null;
+}
+
+const isAirport = (id: string | null) => !!id && /^[A-Z]{3,4}$/.test(id.trim().toUpperCase());
+
+/** Filed flight plan: origin/destination + navpoint path. */
+export async function getFlightRoute(
+  sessionId: string,
+  flightId: string
+): Promise<FlightRoute | null> {
+  const fp = await ifFetch<{ flightPlanItems: FplItem[] }>(
+    `/sessions/${sessionId}/flights/${flightId}/flightplan`
+  );
+  const items = fp?.flightPlanItems ?? [];
+  if (!items.length) return null;
+  const pick = (it?: FplItem) => (it ? it.identifier ?? it.name ?? null : null);
+  const loc = (it?: FplItem) =>
+    it?.location ? { lat: it.location.latitude, lon: it.location.longitude } : null;
+  const first = items.find((i) => isAirport(pick(i))) ?? items[0];
+  const last = [...items].reverse().find((i) => isAirport(pick(i))) ?? items[items.length - 1];
+  return {
+    origin: pick(first),
+    destination: pick(last),
+    plannedPath: items.map(loc).filter((p): p is LatLon => p !== null),
+  };
+}
+
+/** Real flown track (position-report history), downsampled. */
+export async function getFlightTrack(
+  sessionId: string,
+  flightId: string,
+  maxPoints = 160
+): Promise<LatLon[]> {
+  const pts =
+    (await ifFetch<{ latitude: number; longitude: number }[]>(
+      `/sessions/${sessionId}/flights/${flightId}/route`
+    )) ?? [];
+  if (!pts.length) return [];
+  const step = Math.max(1, Math.ceil(pts.length / maxPoints));
+  const out: LatLon[] = [];
+  for (let i = 0; i < pts.length; i += step) out.push({ lat: pts[i].latitude, lon: pts[i].longitude });
+  const lp = pts[pts.length - 1];
+  const lo = out[out.length - 1];
+  if (lo.lat !== lp.latitude || lo.lon !== lp.longitude) out.push({ lat: lp.latitude, lon: lp.longitude });
+  return out;
+}

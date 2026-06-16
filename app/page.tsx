@@ -11,6 +11,8 @@ import ConnectIFC from "@/components/ConnectIFC";
 import StatsPanel from "@/components/StatsPanel";
 import Achievements from "@/components/Achievements";
 import YearInReview from "@/components/YearInReview";
+import LivePanel from "@/components/LivePanel";
+import FlightDetail from "@/components/FlightDetail";
 import { syncIFC } from "@/lib/ifc";
 
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
@@ -48,6 +50,7 @@ export default function Home() {
   const [wrappedOpen, setWrappedOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Flight | null>(null);
+  const [detail, setDetail] = useState<Flight | null>(null);
   const [ifcOpen, setIfcOpen] = useState(false);
   const [toast, setToast] = useState<string>("");
   const autoRan = useRef(false);
@@ -186,6 +189,13 @@ export default function Home() {
         <Mini label="Countries" value={String(stats.uniqueCountries)} />
       </div>
 
+      {/* Live flight (shows only when the pilot is airborne in IF) */}
+      {ifc.connected && (
+        <div className="mb-6">
+          <LivePanel userId={ifc.userId} connected={ifc.connected} />
+        </div>
+      )}
+
       {/* Tab content */}
       {tab === "map" && (
         <div className="space-y-6">
@@ -225,7 +235,7 @@ export default function Home() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
             <StatsPanel stats={stats} />
             <div>
-              <FlightList flights={flights} onEdit={openEdit} onDelete={removeFlight} />
+              <FlightList flights={flights} onEdit={openEdit} onDelete={removeFlight} onSelect={setDetail} />
             </div>
           </div>
         </div>
@@ -256,7 +266,7 @@ export default function Home() {
             </button>
           </div>
           <div className="card p-4">
-            <FlightList flights={flights} onEdit={openEdit} onDelete={removeFlight} />
+            <FlightList flights={flights} onEdit={openEdit} onDelete={removeFlight} onSelect={setDetail} />
           </div>
         </div>
       )}
@@ -284,6 +294,14 @@ export default function Home() {
         onImport={(fl) => addMany(fl)}
       />
       <YearInReview open={wrappedOpen} onClose={() => setWrappedOpen(false)} flights={flights} />
+      <FlightDetail
+        flight={detail}
+        onClose={() => setDetail(null)}
+        onEdit={(f) => {
+          setDetail(null);
+          openEdit(f);
+        }}
+      />
 
       {/* Toast */}
       {toast && (

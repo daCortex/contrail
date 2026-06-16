@@ -9,10 +9,12 @@ export default function FlightList({
   flights,
   onEdit,
   onDelete,
+  onSelect,
 }: {
   flights: Flight[];
   onEdit: (f: Flight) => void;
   onDelete: (id: string) => void;
+  onSelect?: (f: Flight) => void;
 }) {
   const [q, setQ] = useState("");
 
@@ -53,7 +55,13 @@ export default function FlightList({
             const a = resolvePoint(f.from, f.fromGeo);
             const b = resolvePoint(f.to, f.toGeo);
             return (
-              <li key={f.id} className="card-2 group flex items-center gap-3 p-3">
+              <li
+                key={f.id}
+                onClick={() => onSelect?.(f)}
+                className={`card-2 group flex items-center gap-3 p-3 ${
+                  onSelect ? "cursor-pointer hover:border-[color:var(--color-trail)]/40" : ""
+                }`}
+              >
                 <div className="hidden w-20 shrink-0 text-center sm:block">
                   <div className="text-[11px] text-dim">
                     {new Date(f.date + "T00:00:00").toLocaleDateString(undefined, {
@@ -97,14 +105,20 @@ export default function FlightList({
                     <span className="chip mr-1 rounded px-1.5 py-0.5 text-[9px]">IFC</span>
                   )}
                   <button
-                    onClick={() => onEdit(f)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(f);
+                    }}
                     className="rounded px-2 py-1 text-xs text-haze hover:bg-[color:var(--color-line)]"
                     title="Edit"
                   >
                     ✎
                   </button>
                   <button
-                    onClick={() => onDelete(f.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(f.id);
+                    }}
                     className="rounded px-2 py-1 text-xs text-rose hover:bg-[color:var(--color-line)]"
                     title="Delete"
                   >

@@ -5,6 +5,39 @@
 
 import { IFCProfile, NewFlight } from "./types";
 
+export interface LatLon {
+  lat: number;
+  lon: number;
+}
+
+export interface LiveFlightData {
+  callsign: string | null;
+  username: string | null;
+  sessionName: string;
+  aircraft: string | null;
+  livery: string | null;
+  virtualOrganization: string | null;
+  position: { lat: number; lon: number; altitude: number; speed: number; heading: number; track: number };
+  origin: string | null;
+  destination: string | null;
+  originCity: string | null;
+  destinationCity: string | null;
+  plannedPath: LatLon[];
+  track: LatLon[];
+}
+
+/** Check whether the pilot is flying right now; returns null if not airborne. */
+export async function fetchLive(userId: string): Promise<LiveFlightData | null> {
+  const res = await fetch("/api/ifc/live", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+  if (!res.ok) return null;
+  const json = await res.json().catch(() => ({}));
+  return (json.live as LiveFlightData) ?? null;
+}
+
 /** Link an IFC username → real profile snapshot (grade, hours, landings…). */
 export async function connectIFC(username: string): Promise<IFCProfile> {
   const res = await fetch("/api/ifc/connect", {
