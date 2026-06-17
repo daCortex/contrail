@@ -1,5 +1,15 @@
 # Changelog
 
+**v1.11 — June 16, 2026**
+
+✨ **New**
+- Log in with Infinite Flight — verify you own your IFC account (by adding a one-time code to your IFC profile) to claim and edit your Contrail profile; we only read your public profile, never your password
+
+🐞 **Fixed**
+- Flight plan paths no longer dart off toward Africa — navpoints Infinite Flight can't place (which it returns as 0,0) are dropped, and long routes that cross the antimeridian (e.g. to Australia) now draw correctly
+
+---
+
 **v1.10 — June 16, 2026**
 
 ✨ **New**

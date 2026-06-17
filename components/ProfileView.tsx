@@ -16,10 +16,12 @@ import {
   fetchRemoteProfile,
   syncRemoteStats,
 } from "@/lib/profile";
+import { useSession } from "@/lib/auth-client";
 import StatsPanel from "./StatsPanel";
 import Achievements from "./Achievements";
 import LivePanel from "./LivePanel";
 import BioEditor from "./BioEditor";
+import LoginModal from "./LoginModal";
 import { PlaneIcon, ArrowRightIcon, PencilIcon, BoltIcon } from "./icons";
 
 const RouteMap = dynamic(() => import("./RouteMap"), { ssr: false });
@@ -32,6 +34,8 @@ function withId(f: NewFlight): Flight {
 
 export default function ProfileView({ username }: { username: string }) {
   const search = useSearchParams();
+  const { session, setSession } = useSession();
+  const [loginOpen, setLoginOpen] = useState(false);
   const [profile, setProfile] = useState<IFCProfile | null>(null);
   const [flights, setFlights] = useState<Flight[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -51,13 +55,6 @@ export default function ProfileView({ username }: { username: string }) {
         const p = await connectIFC(username);
         if (cancelled) return;
         setProfile(p);
-        // Determine ownership from the locally-connected account.
-        try {
-          const ifc = JSON.parse(localStorage.getItem("contrail.ifc.v1") || "{}");
-          setIsOwner(!!ifc?.username && ifc.username.toLowerCase() === p.username.toLowerCase());
-        } catch {
-          /* ignore */
-        }
         const r = await syncIFC(p.userId, 15);
         if (cancelled) return;
         setFlights(r.flights.map(withId));
@@ -72,6 +69,13 @@ export default function ProfileView({ username }: { username: string }) {
       cancelled = true;
     };
   }, [username]);
+
+  // Ownership = logged in (verified) as this profile's username.
+  useEffect(() => {
+    setIsOwner(
+      !!session && !!profile && session.username.toLowerCase() === profile.username.toLowerCase()
+    );
+  }, [session, profile]);
 
   // Bio: prefer the encoded copy in the URL, else the saved server profile,
   // else the owner's local copy.
@@ -164,12 +168,19 @@ export default function ProfileView({ username }: { username: string }) {
           >
             Track live
           </Link>
-          {isOwner && (
+          {isOwner ? (
             <button
               onClick={() => setEditing(true)}
               className="flex items-center gap-1.5 rounded-full border border-[color:var(--color-trail)]/40 px-3 py-1.5 text-xs text-trail-soft hover:bg-[color:var(--color-trail)]/10"
             >
               <PencilIcon size={13} /> Edit profile
+            </button>
+          ) : (
+            <button
+              onClick={() => setLoginOpen(true)}
+              className="rounded-full border border-[color:var(--color-line)] px-3 py-1.5 text-xs text-haze hover:text-vapor"
+            >
+              Log in
             </button>
           )}
         </div>
@@ -297,6 +308,8 @@ export default function ProfileView({ username }: { username: string }) {
           onSave={setBio}
         />
       )}
+
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} onLogin={(s) => setSession(s)} />
     </div>
   );
 }

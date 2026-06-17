@@ -262,14 +262,27 @@ export async function getFlightRoute(
   const items = fp?.flightPlanItems ?? [];
   if (!items.length) return null;
   const pick = (it?: FplItem) => (it ? it.identifier ?? it.name ?? null : null);
-  const loc = (it?: FplItem) =>
-    it?.location ? { lat: it.location.latitude, lon: it.location.longitude } : null;
-  const first = items.find((i) => isAirport(pick(i))) ?? items[0];
-  const last = [...items].reverse().find((i) => isAirport(pick(i))) ?? items[items.length - 1];
+  // A navpoint counts only if it has a real, in-range coordinate. IF returns
+  // (0,0) for fixes it can't geocode — drawing those sends the line to "Null
+  // Island" off Africa, which is the bug we're avoiding here.
+  const loc = (it?: FplItem): LatLon | null => {
+    const l = it?.location;
+    if (!l) return null;
+    const lat = l.latitude;
+    const lon = l.longitude;
+    if (typeof lat !== "number" || typeof lon !== "number") return null;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    if (Math.abs(lat) < 0.02 && Math.abs(lon) < 0.02) return null; // (0,0)
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+    return { lat, lon };
+  };
+  const valid = items.filter((i) => loc(i) !== null);
+  const firstA = items.find((i) => isAirport(pick(i)) && loc(i));
+  const lastA = [...items].reverse().find((i) => isAirport(pick(i)) && loc(i));
   return {
-    origin: pick(first),
-    destination: pick(last),
-    plannedPath: items.map(loc).filter((p): p is LatLon => p !== null),
+    origin: pick(firstA ?? valid[0]),
+    destination: pick(lastA ?? valid[valid.length - 1]),
+    plannedPath: valid.map((i) => loc(i)!),
   };
 }
 

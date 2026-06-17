@@ -137,6 +137,7 @@ export async function saveBio(input: {
   challenges: Challenge[];
   token: string | null;
   newToken: string;
+  authorized?: boolean; // true when the requester is logged in as this user
 }): Promise<SaveBioResult> {
   if (!sql) return { ok: false, reason: "forbidden" };
   await ensureSchema();
@@ -144,7 +145,8 @@ export async function saveBio(input: {
   const existing = await sql`SELECT edit_token FROM profiles WHERE username = ${key}`;
   const current: string | null = existing[0]?.edit_token ?? null;
 
-  if (current && current !== input.token) {
+  // Logged-in owners can always edit; otherwise the claim token must match.
+  if (!input.authorized && current && current !== input.token) {
     return { ok: false, reason: "forbidden" };
   }
   const token = current || input.newToken;

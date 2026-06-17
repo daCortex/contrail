@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Map as LeafletMap, Polyline, Marker } from "leaflet";
+import type { Map as LeafletMap, LayerGroup, Marker, PolylineOptions } from "leaflet";
 import { LiveFlightData } from "@/lib/ifc";
 import { planeIcon } from "@/lib/plane-marker";
+import { splitAntimeridian } from "@/lib/geo";
 
 export default function LiveMap({ live }: { live: LiveFlightData }) {
   const elRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
-  const plannedRef = useRef<Polyline | null>(null);
-  const trackRef = useRef<Polyline | null>(null);
+  const plannedRef = useRef<LayerGroup | null>(null);
+  const trackRef = useRef<LayerGroup | null>(null);
   const markerRef = useRef<Marker | null>(null);
   const fittedRef = useRef(false);
 
@@ -51,32 +52,30 @@ export default function LiveMap({ live }: { live: LiveFlightData }) {
       const map = mapRef.current;
       if (cancelled || !map) return;
 
-      const planned = live.plannedPath.map((p) => [p.lat, p.lon] as [number, number]);
-      const flown = live.track.map((p) => [p.lat, p.lon] as [number, number]);
+      const planned = live.plannedPath;
+      const flown = live.track;
       const pos: [number, number] = [live.position.lat, live.position.lon];
 
-      // Planned route (dashed) — set once, then update points in place.
-      if (planned.length > 1) {
-        if (!plannedRef.current) {
-          plannedRef.current = L.polyline(planned, {
-            color: "#4f8cff",
-            weight: 1.5,
-            opacity: 0.45,
-            dashArray: "4 6",
-          }).addTo(map);
-        } else {
-          plannedRef.current.setLatLngs(planned);
+      // Draw a multi-segment line (split at the antimeridian) into a layer group.
+      const drawLine = (
+        ref: typeof plannedRef,
+        pts: { lat: number; lon: number }[],
+        style: PolylineOptions
+      ) => {
+        if (!ref.current) ref.current = L.layerGroup().addTo(map);
+        ref.current.clearLayers();
+        if (pts.length < 2) return;
+        for (const seg of splitAntimeridian(pts)) {
+          if (seg.length < 2) continue;
+          L.polyline(
+            seg.map((p) => [p.lat, p.lon] as [number, number]),
+            style
+          ).addTo(ref.current!);
         }
-      }
+      };
 
-      // Flown track (solid cyan).
-      if (flown.length > 1) {
-        if (!trackRef.current) {
-          trackRef.current = L.polyline(flown, { color: "#38d6e0", weight: 2.5, opacity: 0.9 }).addTo(map);
-        } else {
-          trackRef.current.setLatLngs(flown);
-        }
-      }
+      drawLine(plannedRef, planned, { color: "#4f8cff", weight: 1.5, opacity: 0.45, dashArray: "4 6" });
+      drawLine(trackRef, flown, { color: "#38d6e0", weight: 2.5, opacity: 0.9 });
 
       // Aircraft marker — move + rotate in place.
       const icon = planeIcon(L, { heading: live.position.track, color: "#5fe3ec", size: 26, glow: true });
@@ -88,11 +87,16 @@ export default function LiveMap({ live }: { live: LiveFlightData }) {
       }
 
       // Fit bounds only on the first load so the view doesn't jump every poll.
+      // Bias toward the flown track + current position (the planned route can
+      // span the globe and would otherwise zoom too far out).
       if (!fittedRef.current) {
-        const pts = [...planned, ...flown, pos];
+        const pts: [number, number][] = [
+          ...flown.map((p) => [p.lat, p.lon] as [number, number]),
+          pos,
+        ];
         if (pts.length >= 2) {
           try {
-            map.fitBounds(pts, { padding: [30, 30], maxZoom: 7 });
+            map.fitBounds(pts, { padding: [40, 40], maxZoom: 6 });
           } catch {
             map.setView(pos, 5);
           }

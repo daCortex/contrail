@@ -14,8 +14,10 @@ import Achievements from "@/components/Achievements";
 import YearInReview from "@/components/YearInReview";
 import LivePanel from "@/components/LivePanel";
 import FlightDetail from "@/components/FlightDetail";
+import LoginModal from "@/components/LoginModal";
 import { SparkIcon, PlusIcon } from "@/components/icons";
-import { syncIFC } from "@/lib/ifc";
+import { syncIFC, connectIFC } from "@/lib/ifc";
+import { useSession, logoutSession } from "@/lib/auth-client";
 
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
   ssr: false,
@@ -60,6 +62,8 @@ export default function Home() {
   const [editing, setEditing] = useState<Flight | null>(null);
   const [detail, setDetail] = useState<Flight | null>(null);
   const [ifcOpen, setIfcOpen] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const { session, setSession } = useSession();
   const [toast, setToast] = useState<string>("");
   const autoRan = useRef(false);
 
@@ -95,6 +99,30 @@ export default function Home() {
   const handleSave = (f: NewFlight, id?: string) => {
     if (id) updateFlight(id, f);
     else addFlight(f, "manual");
+  };
+
+  const handleLogin = async (s: { username: string; userId: string }) => {
+    setSession(s);
+    // Logging in also connects your flightbook to that account.
+    try {
+      const profile = await connectIFC(s.username);
+      setIfc((prev) => ({
+        ...prev,
+        connected: true,
+        username: profile.username,
+        userId: profile.userId,
+        profile,
+      }));
+      flash(`Logged in as @${profile.username}.`);
+    } catch {
+      flash(`Logged in as @${s.username}.`);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logoutSession();
+    setSession(null);
+    setIfc((prev) => ({ ...prev, connected: false, autoSync: false, userId: "", profile: null }));
   };
 
   const openNew = () => {
@@ -165,14 +193,16 @@ export default function Home() {
               >
                 <span className="live-dot h-1.5 w-1.5 rounded-full bg-[color:var(--color-trail)]" />
                 @{ifc.username}
-                {ifc.autoSync && <span className="text-[10px] opacity-80">· auto</span>}
+                {session && session.username.toLowerCase() === ifc.username.toLowerCase() && (
+                  <span className="text-[10px] opacity-80">· verified</span>
+                )}
               </button>
             ) : (
               <button
-                onClick={() => setIfcOpen(true)}
+                onClick={() => setLoginOpen(true)}
                 className="rounded-full border border-[color:var(--color-trail)]/40 px-3 py-1.5 text-xs text-trail-soft hover:bg-[color:var(--color-trail)]/10"
               >
-                Connect IFC
+                Log in with IFC
               </button>
             )}
             <button
@@ -319,7 +349,9 @@ export default function Home() {
         ifc={ifc}
         setIfc={setIfc}
         onImport={(fl) => addMany(fl)}
+        onLogout={handleLogout}
       />
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} onLogin={handleLogin} />
       <YearInReview open={wrappedOpen} onClose={() => setWrappedOpen(false)} flights={flights} />
       <FlightDetail
         flight={detail}

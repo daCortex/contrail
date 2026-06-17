@@ -13,12 +13,14 @@ export default function ConnectIFC({
   ifc,
   setIfc,
   onImport,
+  onLogout,
 }: {
   open: boolean;
   onClose: () => void;
   ifc: IFCConnection;
   setIfc: (updater: (prev: IFCConnection) => IFCConnection) => void;
   onImport: (flights: NewFlight[]) => void;
+  onLogout?: () => void;
 }) {
   const [username, setUsername] = useState(ifc.username);
   const [busy, setBusy] = useState<"idle" | "connecting" | "syncing">("idle");
@@ -75,7 +77,8 @@ export default function ConnectIFC({
   };
 
   const disconnect = () => {
-    setIfc((prev) => ({ ...prev, connected: false, autoSync: false, userId: "", profile: null }));
+    if (onLogout) onLogout();
+    else setIfc((prev) => ({ ...prev, connected: false, autoSync: false, userId: "", profile: null }));
     setMsg("");
     setErr("");
   };

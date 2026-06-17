@@ -68,3 +68,23 @@ export function greatCircleSegments(a: LatLon, b: LatLon, steps = 64): LatLon[][
   segments.push(current);
   return segments;
 }
+
+/**
+ * Split a polyline of lat/lon points wherever consecutive longitudes jump more
+ * than 180° (an antimeridian crossing), so Leaflet doesn't draw a stray line
+ * straight across the whole map.
+ */
+export function splitAntimeridian(points: LatLon[]): LatLon[][] {
+  if (points.length < 2) return [points];
+  const segs: LatLon[][] = [];
+  let cur: LatLon[] = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    if (Math.abs(points[i].lon - points[i - 1].lon) > 180) {
+      segs.push(cur);
+      cur = [];
+    }
+    cur.push(points[i]);
+  }
+  segs.push(cur);
+  return segs;
+}

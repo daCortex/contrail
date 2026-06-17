@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import { cookies } from "next/headers";
 import {
   dbConfigured,
   getProfile,
@@ -8,6 +9,7 @@ import {
   ProfileStats,
 } from "@/lib/db";
 import { Challenge } from "@/lib/profile";
+import { readSessionToken, SESSION_COOKIE } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +50,9 @@ export async function POST(req: Request) {
     const description = ((body.description as string) || "").slice(0, 800);
     const challenges = (Array.isArray(body.challenges) ? body.challenges : []) as Challenge[];
     const token = (body.token as string) || null;
+    // Logged-in owner? (session username matches the target profile)
+    const session = readSessionToken((await cookies()).get(SESSION_COOKIE)?.value);
+    const authorized = !!session && session.username.toLowerCase() === username.toLowerCase();
     const result = await saveBio({
       username,
       displayName,
@@ -56,6 +61,7 @@ export async function POST(req: Request) {
       challenges: challenges.slice(0, 20),
       token,
       newToken: randomUUID(),
+      authorized,
     });
     if (!result.ok) {
       return NextResponse.json(
