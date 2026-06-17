@@ -70,6 +70,26 @@ export function greatCircleSegments(a: LatLon, b: LatLon, steps = 64): LatLon[][
 }
 
 /**
+ * Make a polyline's longitudes continuous (they may exceed ±180°) so a path
+ * that crosses the antimeridian flows smoothly into the adjacent world copy
+ * instead of jumping across the whole map. Leaflet (with worldCopyJump) renders
+ * out-of-range longitudes correctly, so this is preferable to splitting for
+ * lines that should look connected (e.g. a live flight's route to Australia).
+ */
+export function unwrapLongitudes(points: LatLon[]): LatLon[] {
+  if (points.length === 0) return points;
+  const out: LatLon[] = [{ lat: points[0].lat, lon: points[0].lon }];
+  for (let i = 1; i < points.length; i++) {
+    let lon = points[i].lon;
+    const prev = out[i - 1].lon;
+    while (lon - prev > 180) lon -= 360;
+    while (lon - prev < -180) lon += 360;
+    out.push({ lat: points[i].lat, lon });
+  }
+  return out;
+}
+
+/**
  * Split a polyline of lat/lon points wherever consecutive longitudes jump more
  * than 180° (an antimeridian crossing), so Leaflet doesn't draw a stray line
  * straight across the whole map.

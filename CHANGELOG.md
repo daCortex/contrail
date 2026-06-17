@@ -1,5 +1,12 @@
 # Changelog
 
+**v1.12 — June 16, 2026**
+
+🔧 **Improved**
+- Live flight routes now read like a real tracker — your completed path is a solid line, and only the remaining leg to your destination is drawn as a faint dashed line (instead of the whole filed plan), with antimeridian crossings (e.g. flights to Australia) finally rendering smoothly
+
+---
+
 **v1.11 — June 16, 2026**
 
 ✨ **New**
