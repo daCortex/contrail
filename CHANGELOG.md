@@ -1,5 +1,15 @@
 # Changelog
 
+**v1.14 — June 16, 2026**
+
+✨ **New**
+- Custom themes — pick an accent colour for the whole app from the new palette button (Contrail cyan, Sky, Violet, Gold, Rose, Mint, Coral, Ice); your choice also styles your public profile
+- Profiles got a redesign and a lot more to customise — a tagline, home base, favourite aircraft, and social links (Discord, YouTube, Twitch, website)
+- Your Challenges now show on your public profile with live progress bars
+- Add a flight to a challenge straight from your logbook — no need to open the challenge first
+
+---
+
 **v1.13 — June 16, 2026**
 
 ✨ **New**

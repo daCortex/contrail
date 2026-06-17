@@ -1,12 +1,12 @@
-// Persistence layer (Neon Postgres). Dormant until DATABASE_URL is set —
-// the profile/leaderboard routes fall back to "not configured" without it.
+// Persistence layer (Neon Postgres). Dormant until DATABASE_URL is set.
 //
-// Stores one row per pilot: their editable bio (description + challenges) plus
-// a cached snapshot of derived stats that power the leaderboards. Ownership of
-// the bio is guarded by an edit token (claim-on-first-edit).
+// One row per pilot: editable bio (description, tagline, home base, favourite
+// aircraft, accent theme, links), public challenge summaries, and a cached
+// snapshot of derived stats for the leaderboards. Bio/challenge edits are
+// guarded by an edit token (claim-on-first-edit) or a logged-in session.
 
 import { neon } from "@neondatabase/serverless";
-import { Challenge } from "./profile";
+import { ProfileBio, ProfileLinks, PublicChallenge } from "./profile";
 
 export const dbConfigured = !!process.env.DATABASE_URL;
 
@@ -27,8 +27,8 @@ export interface ProfileRow {
   username: string;
   displayName: string;
   userId: string;
-  description: string;
-  challenges: Challenge[];
+  bio: ProfileBio;
+  challenges: PublicChallenge[];
   stats: ProfileStats;
   claimed: boolean;
   updatedAt: string;
@@ -58,6 +58,12 @@ function ensureSchema(): Promise<void> {
           created_at     timestamptz NOT NULL DEFAULT now(),
           updated_at     timestamptz NOT NULL DEFAULT now()
         )`;
+      // Newer customization columns (added in place for existing tables).
+      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT ''`;
+      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS home_airport text NOT NULL DEFAULT ''`;
+      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS favorite_aircraft text NOT NULL DEFAULT ''`;
+      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS accent text NOT NULL DEFAULT 'cyan'`;
+      await sql`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS links jsonb NOT NULL DEFAULT '{}'::jsonb`;
     })();
   }
   return initPromise;
@@ -69,7 +75,14 @@ function toRow(r: any): ProfileRow {
     username: r.username,
     displayName: r.display_name,
     userId: r.user_id,
-    description: r.description ?? "",
+    bio: {
+      description: r.description ?? "",
+      tagline: r.tagline ?? "",
+      homeAirport: r.home_airport ?? "",
+      favoriteAircraft: r.favorite_aircraft ?? "",
+      accent: r.accent ?? "cyan",
+      links: (r.links as ProfileLinks) ?? {},
+    },
     challenges: Array.isArray(r.challenges) ? r.challenges : [],
     stats: {
       grade: r.grade,
@@ -94,8 +107,7 @@ export async function getProfile(username: string): Promise<ProfileRow | null> {
   return rows[0] ? toRow(rows[0]) : null;
 }
 
-/** Upsert the derived stats for a profile (no bio touch). Anyone viewing a
- * profile refreshes its leaderboard snapshot this way. */
+/** Upsert the derived stats for a profile (no bio touch). */
 export async function upsertStats(input: {
   username: string;
   displayName: string;
@@ -123,47 +135,77 @@ export async function upsertStats(input: {
       updated_at = now()`;
 }
 
-export type SaveBioResult =
-  | { ok: true; token: string; claimed: true }
-  | { ok: false; reason: "forbidden" };
+export type SaveResult = { ok: true; token: string } | { ok: false; reason: "forbidden" };
 
-/** Save the bio. Claims the profile on first edit (returns a fresh token);
- * subsequent edits must present the matching token. */
+async function authorize(username: string, token: string | null, authorized: boolean) {
+  const existing = await sql!`SELECT edit_token FROM profiles WHERE username = ${username}`;
+  const current: string | null = existing[0]?.edit_token ?? null;
+  if (!authorized && current && current !== token) return { ok: false as const };
+  return { ok: true as const, token: current };
+}
+
+/** Save the editable bio. Claims the profile on first edit; later edits need
+ * the token or a logged-in session. */
 export async function saveBio(input: {
   username: string;
   displayName: string;
   userId: string;
-  description: string;
-  challenges: Challenge[];
+  bio: ProfileBio;
   token: string | null;
   newToken: string;
-  authorized?: boolean; // true when the requester is logged in as this user
-}): Promise<SaveBioResult> {
+  authorized?: boolean;
+}): Promise<SaveResult> {
   if (!sql) return { ok: false, reason: "forbidden" };
   await ensureSchema();
   const key = input.username.trim().toLowerCase();
-  const existing = await sql`SELECT edit_token FROM profiles WHERE username = ${key}`;
-  const current: string | null = existing[0]?.edit_token ?? null;
-
-  // Logged-in owners can always edit; otherwise the claim token must match.
-  if (!input.authorized && current && current !== input.token) {
-    return { ok: false, reason: "forbidden" };
-  }
-  const token = current || input.newToken;
-  const challengesJson = JSON.stringify(input.challenges);
+  const auth = await authorize(key, input.token, !!input.authorized);
+  if (!auth.ok) return { ok: false, reason: "forbidden" };
+  const token = auth.token || input.newToken;
+  const b = input.bio;
+  const linksJson = JSON.stringify(b.links || {});
 
   await sql`
-    INSERT INTO profiles (username, display_name, user_id, description, challenges, edit_token, updated_at)
-    VALUES (${key}, ${input.displayName}, ${input.userId}, ${input.description}, ${challengesJson}::jsonb, ${token}, now())
+    INSERT INTO profiles (username, display_name, user_id, description, tagline, home_airport, favorite_aircraft, accent, links, edit_token, updated_at)
+    VALUES (${key}, ${input.displayName}, ${input.userId}, ${b.description}, ${b.tagline}, ${b.homeAirport}, ${b.favoriteAircraft}, ${b.accent}, ${linksJson}::jsonb, ${token}, now())
     ON CONFLICT (username) DO UPDATE SET
       display_name = EXCLUDED.display_name,
       user_id = EXCLUDED.user_id,
       description = EXCLUDED.description,
+      tagline = EXCLUDED.tagline,
+      home_airport = EXCLUDED.home_airport,
+      favorite_aircraft = EXCLUDED.favorite_aircraft,
+      accent = EXCLUDED.accent,
+      links = EXCLUDED.links,
+      edit_token = ${token},
+      updated_at = now()`;
+  return { ok: true, token };
+}
+
+/** Save the public challenge summaries (same auth rules as the bio). */
+export async function saveChallenges(input: {
+  username: string;
+  displayName: string;
+  userId: string;
+  challenges: PublicChallenge[];
+  token: string | null;
+  newToken: string;
+  authorized?: boolean;
+}): Promise<SaveResult> {
+  if (!sql) return { ok: false, reason: "forbidden" };
+  await ensureSchema();
+  const key = input.username.trim().toLowerCase();
+  const auth = await authorize(key, input.token, !!input.authorized);
+  if (!auth.ok) return { ok: false, reason: "forbidden" };
+  const token = auth.token || input.newToken;
+  const json = JSON.stringify(input.challenges.slice(0, 30));
+  await sql`
+    INSERT INTO profiles (username, display_name, user_id, challenges, edit_token, updated_at)
+    VALUES (${key}, ${input.displayName}, ${input.userId}, ${json}::jsonb, ${token}, now())
+    ON CONFLICT (username) DO UPDATE SET
       challenges = EXCLUDED.challenges,
       edit_token = ${token},
       updated_at = now()`;
-
-  return { ok: true, token, claimed: true };
+  return { ok: true, token };
 }
 
 export type LeaderMetric =
@@ -196,7 +238,6 @@ export async function leaderboard(metric: LeaderMetric, limit = 50): Promise<Lea
   if (!sql) return [];
   await ensureSchema();
   const col = METRIC_COL[metric] || "distance_km";
-  // Column name is from a fixed whitelist above, safe to interpolate.
   const rows = await sql.query(
     `SELECT username, display_name, grade, ${col} AS value
      FROM profiles WHERE ${col} > 0

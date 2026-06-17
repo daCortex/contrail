@@ -200,3 +200,9 @@ export const BoltIcon = (p: P) => (
     <path d="M13 3 4 14h7l-1 7 9-11h-7l1-7Z" />
   </S>
 );
+
+export const CheckIcon = (p: P) => (
+  <S {...p} strokeWidth={p.strokeWidth ?? 2.4}>
+    <path d="M5 12l5 5L20 6" />
+  </S>
+);

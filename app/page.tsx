@@ -16,9 +16,12 @@ import YearInReview from "@/components/YearInReview";
 import LivePanel from "@/components/LivePanel";
 import FlightDetail from "@/components/FlightDetail";
 import LoginModal from "@/components/LoginModal";
+import ThemeMenu from "@/components/ThemeMenu";
 import { SparkIcon, PlusIcon } from "@/components/icons";
 import { syncIFC, connectIFC } from "@/lib/ifc";
 import { useSession, logoutSession } from "@/lib/auth-client";
+import { useTheme } from "@/lib/theme";
+import { useChallenges } from "@/lib/challenges";
 
 const RouteMap = dynamic(() => import("@/components/RouteMap"), {
   ssr: false,
@@ -65,6 +68,18 @@ export default function Home() {
   const [ifcOpen, setIfcOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const { session, setSession } = useSession();
+  const { theme, setTheme } = useTheme();
+  const challengesApi = useChallenges();
+
+  const toggleFlightInChallenge = (flightId: string, challengeId: string) => {
+    const ch = challengesApi.challenges.find((c) => c.id === challengeId);
+    if (!ch) return;
+    const has = ch.flightIds.includes(flightId);
+    challengesApi.setFlights(
+      challengeId,
+      has ? ch.flightIds.filter((f) => f !== flightId) : [...ch.flightIds, flightId]
+    );
+  };
   const [toast, setToast] = useState<string>("");
   const autoRan = useRef(false);
 
@@ -212,6 +227,7 @@ export default function Home() {
             >
               <PlusIcon size={16} strokeWidth={2.2} /> Log flight
             </button>
+            <ThemeMenu theme={theme} onChange={setTheme} />
           </div>
         </div>
 
@@ -294,7 +310,7 @@ export default function Home() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
             <StatsPanel stats={stats} />
             <div>
-              <FlightList flights={flights} onEdit={openEdit} onDelete={removeFlight} onSelect={setDetail} />
+              <FlightList flights={flights} onEdit={openEdit} onDelete={removeFlight} onSelect={setDetail} challenges={challengesApi.challenges} onToggleChallenge={toggleFlightInChallenge} />
             </div>
           </div>
         </div>
@@ -304,7 +320,7 @@ export default function Home() {
 
       {tab === "awards" && <Achievements stats={stats} flights={flights} />}
 
-      {tab === "challenges" && <Challenges flights={flights} />}
+      {tab === "challenges" && <Challenges flights={flights} api={challengesApi} />}
 
       {tab === "logbook" && (
         <div className="space-y-4">
@@ -327,7 +343,7 @@ export default function Home() {
             </button>
           </div>
           <div className="card p-4">
-            <FlightList flights={flights} onEdit={openEdit} onDelete={removeFlight} onSelect={setDetail} />
+            <FlightList flights={flights} onEdit={openEdit} onDelete={removeFlight} onSelect={setDetail} challenges={challengesApi.challenges} onToggleChallenge={toggleFlightInChallenge} />
           </div>
         </div>
       )}

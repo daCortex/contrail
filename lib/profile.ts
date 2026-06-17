@@ -1,20 +1,55 @@
-// Profile bio — the author-supplied part of a profile (description + ongoing
-// challenges). Without a backend it lives in localStorage for the owner and
-// travels inside the share link (base64) so others can see it.
+// Public profile data: an editable bio (description, tagline, home base,
+// favourite aircraft, accent theme, social links) plus auto-pushed challenge
+// summaries. Persisted to the DB (and mirrored to localStorage + share link).
 
-export interface Challenge {
-  id: string;
-  title: string;
-  ifcUrl: string; // link to the IFC forum thread
-  description: string;
+export interface ProfileLinks {
+  discord?: string;
+  youtube?: string;
+  twitch?: string;
+  website?: string;
 }
 
 export interface ProfileBio {
   description: string;
-  challenges: Challenge[];
+  tagline: string;
+  homeAirport: string;
+  favoriteAircraft: string;
+  accent: string; // theme id
+  links: ProfileLinks;
 }
 
-export const EMPTY_BIO: ProfileBio = { description: "", challenges: [] };
+export const EMPTY_BIO: ProfileBio = {
+  description: "",
+  tagline: "",
+  homeAirport: "",
+  favoriteAircraft: "",
+  accent: "cyan",
+  links: {},
+};
+
+/** A challenge summary shown publicly (computed from the owner's tracked challenge). */
+export interface PublicChallenge {
+  name: string;
+  goalType: string;
+  goalTarget: number;
+  value: number;
+  flights: number;
+  countries: number;
+  distanceKm: number;
+  ifcUrl: string;
+  note: string;
+}
+
+function normalizeBio(b: Partial<ProfileBio> | null | undefined): ProfileBio {
+  return {
+    description: b?.description ?? "",
+    tagline: b?.tagline ?? "",
+    homeAirport: b?.homeAirport ?? "",
+    favoriteAircraft: b?.favoriteAircraft ?? "",
+    accent: b?.accent ?? "cyan",
+    links: b?.links ?? {},
+  };
+}
 
 const key = (username: string) => `contrail.bio.${username.toLowerCase()}`;
 
@@ -22,7 +57,7 @@ export function loadBio(username: string): ProfileBio | null {
   if (typeof window === "undefined" || !username) return null;
   try {
     const raw = window.localStorage.getItem(key(username));
-    return raw ? (JSON.parse(raw) as ProfileBio) : null;
+    return raw ? normalizeBio(JSON.parse(raw)) : null;
   } catch {
     return null;
   }
@@ -37,14 +72,22 @@ export function saveBio(username: string, bio: ProfileBio) {
 }
 
 const hasContent = (b: ProfileBio | null) =>
-  !!b && (b.description.trim() !== "" || b.challenges.length > 0);
+  !!b &&
+  (b.description.trim() !== "" ||
+    b.tagline.trim() !== "" ||
+    b.homeAirport.trim() !== "" ||
+    b.favoriteAircraft.trim() !== "" ||
+    Object.values(b.links || {}).some((v) => (v || "").trim() !== ""));
+
+export function bioHasContent(b: ProfileBio | null): boolean {
+  return hasContent(b);
+}
 
 /** URL-safe base64 encode/decode (handles unicode). */
 export function encodeBio(bio: ProfileBio): string {
   if (!hasContent(bio)) return "";
   try {
-    const json = JSON.stringify(bio);
-    const b64 = btoa(unescape(encodeURIComponent(json)));
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(bio))));
     return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   } catch {
     return "";
@@ -55,28 +98,21 @@ export function decodeBio(str: string): ProfileBio | null {
   if (!str) return null;
   try {
     const b64 = str.replace(/-/g, "+").replace(/_/g, "/");
-    const json = decodeURIComponent(escape(atob(b64)));
-    const parsed = JSON.parse(json) as ProfileBio;
-    if (!parsed || typeof parsed.description !== "string" || !Array.isArray(parsed.challenges))
-      return null;
-    return parsed;
+    const parsed = JSON.parse(decodeURIComponent(escape(atob(b64))));
+    if (!parsed || typeof parsed.description !== "string") return null;
+    return normalizeBio(parsed);
   } catch {
     return null;
   }
 }
 
-export function bioHasContent(b: ProfileBio | null): boolean {
-  return hasContent(b);
-}
-
-/** Only allow http(s) links, and prefer IFC ones. */
+/** Only allow http(s) links. */
 export function safeUrl(url: string): string | null {
-  const u = url.trim();
+  const u = (url || "").trim();
   if (!u) return null;
   try {
     const parsed = new URL(u);
-    if (parsed.protocol === "http:" || parsed.protocol === "https:") return parsed.href;
-    return null;
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : null;
   } catch {
     return null;
   }
@@ -100,8 +136,8 @@ export interface ProfileStatsInput {
 }
 
 export interface RemoteProfile {
-  description: string;
-  challenges: Challenge[];
+  bio: ProfileBio;
+  challenges: PublicChallenge[];
   claimed: boolean;
 }
 
@@ -123,15 +159,14 @@ export function saveToken(username: string, token: string) {
   }
 }
 
-/** Fetch a profile's stored bio + claim status from the DB (null if none/no DB). */
 export async function fetchRemoteProfile(username: string): Promise<RemoteProfile | null> {
   try {
     const res = await fetch(`/api/profile?username=${encodeURIComponent(username)}`);
     const json = await res.json();
     if (!json?.profile) return null;
     return {
-      description: json.profile.description || "",
-      challenges: json.profile.challenges || [],
+      bio: normalizeBio(json.profile.bio),
+      challenges: (json.profile.challenges as PublicChallenge[]) || [],
       claimed: !!json.profile.claimed,
     };
   } catch {
@@ -139,7 +174,6 @@ export async function fetchRemoteProfile(username: string): Promise<RemoteProfil
   }
 }
 
-/** Push derived stats (for leaderboards). Fire-and-forget; ignores failures. */
 export async function syncRemoteStats(input: {
   username: string;
   displayName: string;
@@ -157,7 +191,7 @@ export async function syncRemoteStats(input: {
   }
 }
 
-/** Save the bio to the DB. Returns the (possibly new) edit token, or throws. */
+/** Save the editable bio to the DB. Returns the (possibly new) edit token. */
 export async function saveRemoteBio(input: {
   username: string;
   displayName: string;
@@ -173,8 +207,7 @@ export async function saveRemoteBio(input: {
       username: input.username,
       displayName: input.displayName,
       userId: input.userId,
-      description: input.bio.description,
-      challenges: input.bio.challenges,
+      bio: input.bio,
       token,
     }),
   });
@@ -182,6 +215,24 @@ export async function saveRemoteBio(input: {
   if (!res.ok) throw new Error(json?.error || "Could not save profile.");
   if (json.token) saveToken(input.username, json.token);
   return json.token;
+}
+
+/** Push public challenge summaries to the profile (owner must be logged in). */
+export async function syncRemoteChallenges(input: {
+  username: string;
+  displayName: string;
+  userId: string;
+  challenges: PublicChallenge[];
+}): Promise<void> {
+  try {
+    await fetch("/api/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "challenges", ...input }),
+    });
+  } catch {
+    /* ignore */
+  }
 }
 
 export interface LeaderRow {

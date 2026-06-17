@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Flight } from "@/lib/types";
 import { computeStats, fmtKm } from "@/lib/stats";
 import {
@@ -10,11 +10,47 @@ import {
   GOAL_LABELS,
   goalValue,
 } from "@/lib/challenges";
+import { useSession } from "@/lib/auth-client";
+import { syncRemoteChallenges } from "@/lib/profile";
 import ChallengeDetail from "./ChallengeDetail";
 import { CloseIcon, PlusIcon, BoltIcon } from "./icons";
 
-export default function Challenges({ flights }: { flights: Flight[] }) {
-  const { challenges, create, update, remove, setFlights } = useChallenges();
+export default function Challenges({
+  flights,
+  api,
+}: {
+  flights: Flight[];
+  api: ReturnType<typeof useChallenges>;
+}) {
+  const { challenges, ready, create, update, remove, setFlights } = api;
+  const { session } = useSession();
+
+  // When logged in, publish challenge summaries to the profile so visitors see
+  // them with live progress. Fire-and-forget on any change.
+  useEffect(() => {
+    if (!ready || !session) return;
+    const summaries = challenges.map((c) => {
+      const scoped = flights.filter((f) => c.flightIds.includes(f.id));
+      const s = computeStats(scoped);
+      return {
+        name: c.name,
+        goalType: c.goalType,
+        goalTarget: c.goalTarget,
+        value: goalValue(c.goalType, s),
+        flights: scoped.length,
+        countries: s.uniqueCountries,
+        distanceKm: Math.round(s.totalDistanceKm),
+        ifcUrl: c.ifcUrl,
+        note: c.note,
+      };
+    });
+    syncRemoteChallenges({
+      username: session.username,
+      displayName: session.username,
+      userId: session.userId,
+      challenges: summaries,
+    });
+  }, [ready, session, challenges, flights]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [editing, setEditing] = useState<TrackedChallenge | null>(null);
   const [formOpen, setFormOpen] = useState(false);

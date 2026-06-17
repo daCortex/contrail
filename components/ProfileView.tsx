@@ -9,20 +9,23 @@ import { IFCProfile, Flight, NewFlight } from "@/lib/types";
 import { computeStats, fmtDurationLong, fmtKm } from "@/lib/stats";
 import {
   ProfileBio,
+  EMPTY_BIO,
+  PublicChallenge,
   loadBio,
   decodeBio,
-  bioHasContent,
   safeUrl,
   fetchRemoteProfile,
   syncRemoteStats,
 } from "@/lib/profile";
+import { GOAL_LABELS, GoalType } from "@/lib/challenges";
+import { applyAccent } from "@/lib/theme";
 import { useSession } from "@/lib/auth-client";
 import StatsPanel from "./StatsPanel";
 import Achievements from "./Achievements";
 import LivePanel from "./LivePanel";
 import BioEditor from "./BioEditor";
 import LoginModal from "./LoginModal";
-import { PlaneIcon, ArrowRightIcon, PencilIcon, BoltIcon } from "./icons";
+import { PlaneIcon, ArrowRightIcon, PencilIcon, BoltIcon, PinIcon } from "./icons";
 
 const RouteMap = dynamic(() => import("./RouteMap"), { ssr: false });
 
@@ -40,7 +43,8 @@ export default function ProfileView({ username }: { username: string }) {
   const [flights, setFlights] = useState<Flight[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
-  const [bio, setBio] = useState<ProfileBio | null>(null);
+  const [bio, setBio] = useState<ProfileBio>(EMPTY_BIO);
+  const [challenges, setChallenges] = useState<PublicChallenge[]>([]);
   const [editing, setEditing] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [tab, setTab] = useState<"overview" | "stats" | "awards">("overview");
@@ -70,39 +74,11 @@ export default function ProfileView({ username }: { username: string }) {
     };
   }, [username]);
 
-  // Ownership = logged in (verified) as this profile's username.
   useEffect(() => {
-    setIsOwner(
-      !!session && !!profile && session.username.toLowerCase() === profile.username.toLowerCase()
-    );
+    setIsOwner(!!session && !!profile && session.username.toLowerCase() === profile.username.toLowerCase());
   }, [session, profile]);
 
-  // Bio: prefer the encoded copy in the URL, else the saved server profile,
-  // else the owner's local copy.
-  useEffect(() => {
-    let cancelled = false;
-    const enc = search.get("c");
-    const fromUrl = enc ? decodeBio(enc) : null;
-    if (fromUrl) {
-      setBio(fromUrl);
-      return;
-    }
-    if (!profile) return;
-    (async () => {
-      const remote = await fetchRemoteProfile(profile.username);
-      if (cancelled) return;
-      if (remote && (remote.description || remote.challenges.length)) {
-        setBio({ description: remote.description, challenges: remote.challenges });
-      } else {
-        setBio(loadBio(profile.username));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [search, profile]);
-
-  // Push derived stats to the leaderboard snapshot once a profile is loaded.
+  // Push derived stats to the leaderboard snapshot once loaded.
   useEffect(() => {
     if (status !== "ready" || !profile) return;
     syncRemoteStats({
@@ -122,6 +98,42 @@ export default function ProfileView({ username }: { username: string }) {
     });
   }, [status, profile, stats]);
 
+  // Load bio + challenges: URL-encoded copy first, else the server profile.
+  useEffect(() => {
+    let cancelled = false;
+    const enc = search.get("c");
+    const fromUrl = enc ? decodeBio(enc) : null;
+    if (fromUrl) setBio(fromUrl);
+    if (!profile) return;
+    (async () => {
+      const remote = await fetchRemoteProfile(profile.username);
+      if (cancelled) return;
+      if (remote) {
+        if (!fromUrl) setBio(remote.bio);
+        setChallenges(remote.challenges);
+      } else if (!fromUrl) {
+        setBio(loadBio(profile.username) ?? EMPTY_BIO);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [search, profile]);
+
+  // Apply the profile's accent theme; restore the visitor's own on leave.
+  useEffect(() => {
+    applyAccent(bio.accent || "cyan");
+    return () => {
+      let app = "cyan";
+      try {
+        app = localStorage.getItem("contrail.theme") || "cyan";
+      } catch {
+        /* ignore */
+      }
+      applyAccent(app);
+    };
+  }, [bio.accent]);
+
   if (status === "error") {
     return (
       <div className="mx-auto max-w-md px-6 py-24 text-center">
@@ -140,6 +152,11 @@ export default function ProfileView({ username }: { username: string }) {
   }
 
   const p = profile;
+  const links = bio.links || {};
+  const linkEntries = (["discord", "youtube", "twitch", "website"] as const)
+    .map((k) => ({ k, url: safeUrl(links[k] || "") }))
+    .filter((x) => x.url);
+
   const career = p
     ? [
         { label: "Flight time", value: p.flightTimeMin != null ? fmtDurationLong(p.flightTimeMin) : "—" },
@@ -153,7 +170,6 @@ export default function ProfileView({ username }: { username: string }) {
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
-      {/* Top bar */}
       <header className="flex items-center justify-between py-5">
         <Link href="/" className="flex items-center gap-2 text-sm text-haze hover:text-vapor">
           <span className="text-trail-soft">
@@ -162,24 +178,15 @@ export default function ProfileView({ username }: { username: string }) {
           Contrail
         </Link>
         <div className="flex items-center gap-2">
-          <Link
-            href={`/track?q=${encodeURIComponent(username)}`}
-            className="rounded-full border border-[color:var(--color-line)] px-3 py-1.5 text-xs text-haze hover:text-vapor"
-          >
+          <Link href={`/track?q=${encodeURIComponent(username)}`} className="rounded-full border border-[color:var(--color-line)] px-3 py-1.5 text-xs text-haze hover:text-vapor">
             Track live
           </Link>
           {isOwner ? (
-            <button
-              onClick={() => setEditing(true)}
-              className="flex items-center gap-1.5 rounded-full border border-[color:var(--color-trail)]/40 px-3 py-1.5 text-xs text-trail-soft hover:bg-[color:var(--color-trail)]/10"
-            >
-              <PencilIcon size={13} /> Edit profile
+            <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 rounded-full border border-[color:var(--color-trail)]/40 px-3 py-1.5 text-xs text-trail-soft hover:bg-[color:var(--color-trail)]/10">
+              <PencilIcon size={13} /> Customize
             </button>
           ) : (
-            <button
-              onClick={() => setLoginOpen(true)}
-              className="rounded-full border border-[color:var(--color-line)] px-3 py-1.5 text-xs text-haze hover:text-vapor"
-            >
+            <button onClick={() => setLoginOpen(true)} className="rounded-full border border-[color:var(--color-line)] px-3 py-1.5 text-xs text-haze hover:text-vapor">
               Log in
             </button>
           )}
@@ -187,76 +194,100 @@ export default function ProfileView({ username }: { username: string }) {
       </header>
 
       {/* Identity */}
-      <div className="card mb-6 p-6">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[color:var(--color-trail)]/12 text-trail-soft">
-            <PlaneIcon size={28} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h1 className="truncate text-2xl font-bold tracking-tight text-vapor">@{p?.username ?? username}</h1>
-              {p?.grade ? (
-                <span className="chip rounded-full px-2 py-0.5 text-[11px]">{GRADES[p.grade] || `Grade ${p.grade}`}</span>
-              ) : null}
+      <div className="card mb-6 overflow-hidden">
+        <div className="h-20 bg-gradient-to-r from-[color:var(--color-trail)]/25 via-[color:var(--color-trail)]/8 to-transparent" />
+        <div className="px-6 pb-6">
+          <div className="-mt-9 flex flex-wrap items-end gap-4">
+            <div className="flex h-18 w-18 items-center justify-center rounded-2xl border-4 border-[color:var(--color-panel)] bg-[color:var(--color-trail)]/15 text-trail-soft" style={{ height: 72, width: 72 }}>
+              <PlaneIcon size={30} />
             </div>
-            <div className="mt-0.5 text-sm text-haze">
-              {p?.virtualOrganization ? p.virtualOrganization : "Infinite Flight pilot"}
-            </div>
-          </div>
-        </div>
-
-        {bio?.description && (
-          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-haze">{bio.description}</p>
-        )}
-
-        {/* Career stats */}
-        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          {career.map((c) => (
-            <div key={c.label} className="card-2 px-3 py-2.5">
-              <div className="truncate text-sm font-semibold text-vapor">
-                {status === "loading" ? "…" : c.value}
+            <div className="min-w-0 flex-1 pb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="truncate text-2xl font-bold tracking-tight text-vapor">@{p?.username ?? username}</h1>
+                {p?.grade ? <span className="chip rounded-full px-2 py-0.5 text-[11px]">{GRADES[p.grade] || `Grade ${p.grade}`}</span> : null}
+                {p?.virtualOrganization ? <span className="rounded-full border border-[color:var(--color-line)] px-2 py-0.5 text-[11px] text-haze">{p.virtualOrganization}</span> : null}
               </div>
-              <div className="text-[10px] tracking-wide text-dim uppercase">{c.label}</div>
+              {bio.tagline && <div className="mt-0.5 text-sm text-haze">{bio.tagline}</div>}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      {/* Ongoing challenges */}
-      {bio && bioHasContent(bio) && bio.challenges.length > 0 && (
-        <div className="card mb-6 p-5">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold tracking-wide text-haze uppercase">
-            <BoltIcon size={15} /> Ongoing challenges
-          </h2>
-          <div className="space-y-3">
-            {bio.challenges.map((ch) => (
-              <div key={ch.id} className="card-2 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="font-semibold text-vapor">{ch.title || "Challenge"}</div>
-                  {safeUrl(ch.ifcUrl) && (
-                    <a
-                      href={safeUrl(ch.ifcUrl)!}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex shrink-0 items-center gap-1 text-xs text-trail-soft hover:underline"
-                    >
-                      IFC thread <ArrowRightIcon size={13} />
-                    </a>
-                  )}
-                </div>
-                {ch.description && (
-                  <p className="mt-1.5 text-sm leading-relaxed text-haze">{ch.description}</p>
-                )}
+          {bio.description && <p className="mt-4 max-w-2xl text-sm leading-relaxed text-haze">{bio.description}</p>}
+
+          {(bio.homeAirport || bio.favoriteAircraft || linkEntries.length > 0) && (
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-haze">
+              {bio.homeAirport && (
+                <span className="flex items-center gap-1.5">
+                  <PinIcon size={13} className="text-dim" /> Home base <span className="font-mono text-vapor">{bio.homeAirport}</span>
+                </span>
+              )}
+              {bio.favoriteAircraft && (
+                <span className="flex items-center gap-1.5">
+                  <PlaneIcon size={13} className="text-dim" /> {bio.favoriteAircraft}
+                </span>
+              )}
+              {linkEntries.map(({ k, url }) => (
+                <a key={k} href={url!} target="_blank" rel="noreferrer" className="capitalize text-trail-soft hover:underline">
+                  {k}
+                </a>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            {career.map((c) => (
+              <div key={c.label} className="card-2 px-3 py-2.5">
+                <div className="truncate text-sm font-semibold text-vapor">{status === "loading" ? "…" : c.value}</div>
+                <div className="text-[10px] tracking-wide text-dim uppercase">{c.label}</div>
               </div>
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Challenges */}
+      {challenges.length > 0 && (
+        <div className="card mb-6 p-5">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold tracking-wide text-haze uppercase">
+            <BoltIcon size={15} /> Challenges
+          </h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {challenges.map((ch, i) => {
+              const hasGoal = ch.goalType !== "none" && ch.goalTarget > 0;
+              const pct = hasGoal ? Math.min((ch.value / ch.goalTarget) * 100, 100) : 0;
+              return (
+                <div key={i} className="card-2 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="font-semibold text-vapor">{ch.name}</div>
+                    {safeUrl(ch.ifcUrl) && (
+                      <a href={safeUrl(ch.ifcUrl)!} target="_blank" rel="noreferrer" className="flex shrink-0 items-center gap-1 text-xs text-trail-soft hover:underline">
+                        IFC thread <ArrowRightIcon size={12} />
+                      </a>
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-xs text-dim">
+                    {ch.flights} flights · {ch.countries} countries · {fmtKm(ch.distanceKm)} km
+                  </div>
+                  {ch.note && <p className="mt-2 text-xs leading-relaxed text-haze">{ch.note}</p>}
+                  {hasGoal && (
+                    <div className="mt-3">
+                      <div className="mb-1 flex items-center justify-between text-[11px]">
+                        <span className="text-dim">{GOAL_LABELS[ch.goalType as GoalType] ?? ch.goalType}</span>
+                        <span className="font-mono text-trail-soft">{ch.value.toLocaleString()} / {ch.goalTarget.toLocaleString()}</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-[color:var(--color-line-soft)]">
+                        <div className="h-full rounded-full bg-gradient-to-r from-[color:var(--color-trail)] to-[color:var(--color-amber)]" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
-      {/* Live now (if airborne) */}
       {p && <div className="mb-6"><LivePanel userId={p.userId} connected /></div>}
 
-      {/* Tabs */}
       <nav className="mb-5 flex gap-1">
         {(
           [
@@ -265,13 +296,7 @@ export default function ProfileView({ username }: { username: string }) {
             ["awards", "Awards"],
           ] as [typeof tab, string][]
         ).map(([t, label]) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
-              tab === t ? "bg-[color:var(--color-panel-2)] text-vapor" : "text-dim hover:text-haze"
-            }`}
-          >
+          <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${tab === t ? "bg-[color:var(--color-panel-2)] text-vapor" : "text-dim hover:text-haze"}`}>
             {label}
           </button>
         ))}
@@ -299,16 +324,8 @@ export default function ProfileView({ username }: { username: string }) {
       </footer>
 
       {isOwner && p && (
-        <BioEditor
-          open={editing}
-          onClose={() => setEditing(false)}
-          username={p.username}
-          userId={p.userId}
-          bio={bio}
-          onSave={setBio}
-        />
+        <BioEditor open={editing} onClose={() => setEditing(false)} username={p.username} userId={p.userId} bio={bio} onSave={setBio} />
       )}
-
       <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} onLogin={(s) => setSession(s)} />
     </div>
   );

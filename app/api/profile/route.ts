@@ -6,9 +6,10 @@ import {
   getProfile,
   upsertStats,
   saveBio,
+  saveChallenges,
   ProfileStats,
 } from "@/lib/db";
-import { Challenge } from "@/lib/profile";
+import { ProfileBio, PublicChallenge } from "@/lib/profile";
 import { readSessionToken, SESSION_COOKIE } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -46,28 +47,36 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  // Both bio + challenge edits authorize via the session or the claim token.
+  const session = readSessionToken((await cookies()).get(SESSION_COOKIE)?.value);
+  const authorized = !!session && session.username.toLowerCase() === username.toLowerCase();
+  const token = (body.token as string) || null;
+
   if (mode === "bio") {
-    const description = ((body.description as string) || "").slice(0, 800);
-    const challenges = (Array.isArray(body.challenges) ? body.challenges : []) as Challenge[];
-    const token = (body.token as string) || null;
-    // Logged-in owner? (session username matches the target profile)
-    const session = readSessionToken((await cookies()).get(SESSION_COOKIE)?.value);
-    const authorized = !!session && session.username.toLowerCase() === username.toLowerCase();
-    const result = await saveBio({
-      username,
-      displayName,
-      userId,
-      description,
-      challenges: challenges.slice(0, 20),
-      token,
-      newToken: randomUUID(),
-      authorized,
-    });
+    const bioIn = (body.bio as Partial<ProfileBio>) || {};
+    const bio: ProfileBio = {
+      description: (bioIn.description || "").slice(0, 800),
+      tagline: (bioIn.tagline || "").slice(0, 120),
+      homeAirport: (bioIn.homeAirport || "").slice(0, 8),
+      favoriteAircraft: (bioIn.favoriteAircraft || "").slice(0, 60),
+      accent: (bioIn.accent || "cyan").slice(0, 16),
+      links: bioIn.links || {},
+    };
+    const result = await saveBio({ username, displayName, userId, bio, token, newToken: randomUUID(), authorized });
     if (!result.ok) {
       return NextResponse.json(
-        { error: "This profile is claimed by another device. You can't edit it here." },
+        { error: "This profile is claimed by another device. Log in to edit it." },
         { status: 403 }
       );
+    }
+    return NextResponse.json({ ok: true, token: result.token });
+  }
+
+  if (mode === "challenges") {
+    const challenges = (Array.isArray(body.challenges) ? body.challenges : []) as PublicChallenge[];
+    const result = await saveChallenges({ username, displayName, userId, challenges, token, newToken: randomUUID(), authorized });
+    if (!result.ok) {
+      return NextResponse.json({ error: "Not authorized." }, { status: 403 });
     }
     return NextResponse.json({ ok: true, token: result.token });
   }

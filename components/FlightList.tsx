@@ -1,26 +1,48 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Flight } from "@/lib/types";
 import { resolvePoint } from "@/lib/airports";
 import { fmtDuration, fmtKm } from "@/lib/stats";
-import { PlaneIcon, PencilIcon, TrashIcon, SearchIcon } from "./icons";
+import { PlaneIcon, PencilIcon, TrashIcon, SearchIcon, BoltIcon, CheckIcon } from "./icons";
 
 const PAGE = 50;
+
+interface ChallengeRef {
+  id: string;
+  name: string;
+  flightIds: string[];
+}
 
 export default function FlightList({
   flights,
   onEdit,
   onDelete,
   onSelect,
+  challenges,
+  onToggleChallenge,
 }: {
   flights: Flight[];
   onEdit: (f: Flight) => void;
   onDelete: (id: string) => void;
   onSelect?: (f: Flight) => void;
+  challenges?: ChallengeRef[];
+  onToggleChallenge?: (flightId: string, challengeId: string) => void;
 }) {
   const [q, setQ] = useState("");
   const [limit, setLimit] = useState(PAGE);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuFor(null);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const canChallenge = !!challenges && !!onToggleChallenge;
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -118,6 +140,54 @@ export default function FlightList({
                   <div className="flex shrink-0 items-center gap-1">
                     {f.source === "ifc" && (
                       <span className="chip mr-1 rounded px-1.5 py-0.5 text-[9px]">IFC</span>
+                    )}
+                    {canChallenge && (
+                      <div className="relative">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuFor(menuFor === f.id ? null : f.id);
+                          }}
+                          className={`rounded-md p-1.5 transition hover:bg-[color:var(--color-line)] ${
+                            menuFor === f.id ? "text-trail-soft opacity-100" : "text-haze opacity-0 group-hover:opacity-100"
+                          }`}
+                          title="Add to challenge"
+                        >
+                          <BoltIcon size={14} />
+                        </button>
+                        {menuFor === f.id && (
+                          <div
+                            ref={menuRef}
+                            onClick={(e) => e.stopPropagation()}
+                            className="card-2 absolute right-0 z-50 mt-1 max-h-56 w-52 overflow-auto p-1.5 shadow-2xl"
+                          >
+                            <div className="px-1.5 py-1 text-[10px] tracking-wide text-dim uppercase">Add to challenge</div>
+                            {challenges!.length === 0 ? (
+                              <div className="px-1.5 py-2 text-xs text-dim">No challenges yet.</div>
+                            ) : (
+                              challenges!.map((c) => {
+                                const on = c.flightIds.includes(f.id);
+                                return (
+                                  <button
+                                    key={c.id}
+                                    onClick={() => onToggleChallenge!(f.id, c.id)}
+                                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-haze hover:bg-[color:var(--color-line)]/50"
+                                  >
+                                    <span
+                                      className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border ${
+                                        on ? "border-[color:var(--color-trail)] bg-[color:var(--color-trail)] text-[#04121a]" : "border-[color:var(--color-dim)]"
+                                      }`}
+                                    >
+                                      {on && <CheckIcon size={10} />}
+                                    </span>
+                                    <span className="truncate">{c.name}</span>
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                     <button
                       onClick={(e) => {

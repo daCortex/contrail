@@ -1,17 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ProfileBio,
-  EMPTY_BIO,
-  Challenge,
-  saveBio,
-  encodeBio,
-  uid,
-  safeUrl,
-  saveRemoteBio,
-} from "@/lib/profile";
-import { CloseIcon, TrashIcon, PlusIcon } from "./icons";
+import { ProfileBio, EMPTY_BIO, saveBio, encodeBio, saveRemoteBio, ProfileLinks } from "@/lib/profile";
+import { THEMES } from "@/lib/theme";
+import { CloseIcon } from "./icons";
+
+const LINK_FIELDS: { key: keyof ProfileLinks; label: string; ph: string }[] = [
+  { key: "discord", label: "Discord", ph: "https://discord.gg/…" },
+  { key: "youtube", label: "YouTube", ph: "https://youtube.com/@…" },
+  { key: "twitch", label: "Twitch", ph: "https://twitch.tv/…" },
+  { key: "website", label: "Website", ph: "https://…" },
+];
 
 export default function BioEditor({
   open,
@@ -35,29 +34,17 @@ export default function BioEditor({
 
   useEffect(() => {
     if (open) {
-      setDraft(bio ? { ...bio, challenges: [...bio.challenges] } : EMPTY_BIO);
+      setDraft(bio ? { ...EMPTY_BIO, ...bio, links: { ...bio.links } } : EMPTY_BIO);
       setErr("");
     }
   }, [open, bio]);
 
   if (!open) return null;
 
-  const addChallenge = () =>
-    setDraft((d) => ({
-      ...d,
-      challenges: [...d.challenges, { id: uid(), title: "", ifcUrl: "", description: "" }],
-    }));
+  const set = (patch: Partial<ProfileBio>) => setDraft((d) => ({ ...d, ...patch }));
+  const setLink = (k: keyof ProfileLinks, v: string) =>
+    setDraft((d) => ({ ...d, links: { ...d.links, [k]: v } }));
 
-  const updateChallenge = (id: string, patch: Partial<Challenge>) =>
-    setDraft((d) => ({
-      ...d,
-      challenges: d.challenges.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-    }));
-
-  const removeChallenge = (id: string) =>
-    setDraft((d) => ({ ...d, challenges: d.challenges.filter((c) => c.id !== id) }));
-
-  // Save locally always; try the server (persistent + visible to everyone).
   const persist = async (): Promise<boolean> => {
     saveBio(username, draft);
     onSave(draft);
@@ -90,10 +77,7 @@ export default function BioEditor({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[2000] flex items-start justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-[2000] flex items-start justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={(e) => {
@@ -103,75 +87,88 @@ export default function BioEditor({
         className="card my-8 w-full max-w-2xl p-6"
       >
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-vapor">Edit profile</h2>
+          <h2 className="text-lg font-semibold text-vapor">Customize profile</h2>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-haze hover:bg-[color:var(--color-line)]">
             <CloseIcon size={16} />
           </button>
         </div>
 
-        <label className="mb-1 block text-xs text-haze">Description</label>
-        <textarea
-          className="input min-h-[90px] w-full px-3 py-2 text-sm"
-          placeholder="Tell people about yourself, your VA, the routes you love to fly…"
-          value={draft.description}
-          maxLength={600}
-          onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
-        />
-        <div className="mt-1 text-right text-[10px] text-dim">{draft.description.length}/600</div>
+        <Field label="Tagline">
+          <input
+            className="input w-full px-3 py-2 text-sm"
+            placeholder="Long-haul widebody enthusiast ✈"
+            value={draft.tagline}
+            maxLength={120}
+            onChange={(e) => set({ tagline: e.target.value })}
+          />
+        </Field>
 
-        <div className="mt-4 mb-2 flex items-center justify-between">
-          <label className="text-xs text-haze">Ongoing challenges</label>
-          <button
-            type="button"
-            onClick={addChallenge}
-            className="flex items-center gap-1 text-xs text-trail-soft hover:underline"
-          >
-            <PlusIcon size={13} /> Add challenge
-          </button>
+        <Field label="About you">
+          <textarea
+            className="input min-h-[80px] w-full px-3 py-2 text-sm"
+            placeholder="Tell people about yourself, your VA, the routes you love to fly…"
+            value={draft.description}
+            maxLength={800}
+            onChange={(e) => set({ description: e.target.value })}
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Home base">
+            <input
+              className="input w-full px-3 py-2 text-sm uppercase"
+              placeholder="EHAM"
+              value={draft.homeAirport}
+              maxLength={8}
+              onChange={(e) => set({ homeAirport: e.target.value.toUpperCase() })}
+            />
+          </Field>
+          <Field label="Favorite aircraft">
+            <input
+              className="input w-full px-3 py-2 text-sm"
+              placeholder="Boeing 777-300ER"
+              value={draft.favoriteAircraft}
+              maxLength={60}
+              onChange={(e) => set({ favoriteAircraft: e.target.value })}
+            />
+          </Field>
         </div>
 
-        <div className="space-y-3">
-          {draft.challenges.length === 0 && (
-            <div className="card-2 px-4 py-6 text-center text-xs text-dim">
-              No challenges yet. Add one and link its IFC thread.
-            </div>
-          )}
-          {draft.challenges.map((c) => {
-            const badUrl = c.ifcUrl.trim() !== "" && !safeUrl(c.ifcUrl);
-            return (
-              <div key={c.id} className="card-2 space-y-2 p-3">
-                <div className="flex items-center gap-2">
-                  <input
-                    className="input flex-1 px-3 py-1.5 text-sm"
-                    placeholder="Challenge title"
-                    value={c.title}
-                    onChange={(e) => updateChallenge(c.id, { title: e.target.value })}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeChallenge(c.id)}
-                    className="rounded-md p-1.5 text-rose hover:bg-[color:var(--color-line)]"
-                  >
-                    <TrashIcon size={14} />
-                  </button>
-                </div>
-                <input
-                  className="input w-full px-3 py-1.5 text-sm"
-                  placeholder="IFC thread link (https://community.infiniteflight.com/…)"
-                  value={c.ifcUrl}
-                  onChange={(e) => updateChallenge(c.id, { ifcUrl: e.target.value })}
-                />
-                {badUrl && <div className="text-[10px] text-rose">Enter a valid http(s) link.</div>}
-                <textarea
-                  className="input min-h-[56px] w-full px-3 py-1.5 text-sm"
-                  placeholder="Explain the challenge…"
-                  value={c.description}
-                  maxLength={400}
-                  onChange={(e) => updateChallenge(c.id, { description: e.target.value })}
-                />
-              </div>
-            );
-          })}
+        {/* Theme */}
+        <div className="mt-1 mb-4">
+          <label className="mb-1.5 block text-xs text-haze">Accent theme</label>
+          <div className="flex flex-wrap gap-2">
+            {THEMES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => set({ accent: t.id })}
+                title={t.name}
+                className={`h-7 w-7 rounded-full ring-offset-2 ring-offset-[color:var(--color-panel)] transition ${
+                  draft.accent === t.id ? "ring-2" : "hover:scale-110"
+                }`}
+                style={{
+                  background: `linear-gradient(135deg, ${t.trailSoft}, ${t.trail})`,
+                  // @ts-expect-error custom prop
+                  "--tw-ring-color": t.trail,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Links */}
+        <label className="mb-1.5 block text-xs text-haze">Links</label>
+        <div className="grid grid-cols-2 gap-3">
+          {LINK_FIELDS.map((f) => (
+            <input
+              key={f.key}
+              className="input w-full px-3 py-2 text-sm"
+              placeholder={`${f.label} — ${f.ph}`}
+              value={draft.links[f.key] || ""}
+              onChange={(e) => setLink(f.key, e.target.value)}
+            />
+          ))}
         </div>
 
         {err && (
@@ -190,11 +187,7 @@ export default function BioEditor({
             {copied ? "Link copied ✓" : "Copy share link"}
           </button>
           <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-[color:var(--color-line)] px-4 py-2 text-sm text-haze hover:bg-[color:var(--color-line)]"
-            >
+            <button type="button" onClick={onClose} className="rounded-lg border border-[color:var(--color-line)] px-4 py-2 text-sm text-haze hover:bg-[color:var(--color-line)]">
               Cancel
             </button>
             <button type="submit" disabled={saving} className="btn-trail rounded-lg px-5 py-2 text-sm disabled:opacity-60">
@@ -204,10 +197,19 @@ export default function BioEditor({
         </div>
 
         <p className="mt-4 text-[11px] leading-relaxed text-dim">
-          Your profile is saved to Contrail so anyone visiting your page sees it. Live stats and your
-          map are always pulled fresh from Infinite Flight.
+          Your profile is saved to Contrail so anyone visiting your page sees it. Challenges are managed
+          from the Challenges tab and shown automatically.
         </p>
       </form>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-4">
+      <label className="mb-1 block text-xs text-haze">{label}</label>
+      {children}
     </div>
   );
 }
