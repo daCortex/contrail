@@ -1,5 +1,16 @@
 # Changelog
 
+**v1.10 — June 16, 2026**
+
+✨ **New**
+- Global live map — the live tracker now opens on a world map of *every* active Infinite Flight, FlightRadar24-style, with a count and Expert / Training / Casual filters; search still focuses a single flight, and clicking any plane lets you track it or open its profile
+
+🔧 **Improved**
+- Real aircraft markers — flights now use a proper top-down plane icon that rotates to the heading, instead of the old emoji
+- Smoother tracking — the live route no longer flickers or jumps on every refresh; the map updates the aircraft and trail in place
+
+---
+
 **v1.9 — June 16, 2026**
 
 ✨ **New**

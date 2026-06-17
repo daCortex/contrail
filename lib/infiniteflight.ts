@@ -204,6 +204,18 @@ export async function findLiveFlight(userId: string): Promise<LiveFlightHit | nu
   return results.find(Boolean) ?? null;
 }
 
+/** Every in-progress flight across all live sessions (for the global map). */
+export async function getAllLiveFlights(): Promise<LiveFlightHit[]> {
+  const sessions = await getSessions();
+  const perSession = await Promise.all(
+    sessions.map(async (s) => {
+      const flights = await getSessionFlights(s.id);
+      return flights.map((f) => ({ ...f, sessionId: s.id, sessionName: s.name }));
+    })
+  );
+  return perSession.flat();
+}
+
 /** Find a live flight by exact callsign (case-insensitive) across all sessions. */
 export async function findLiveByCallsign(callsign: string): Promise<LiveFlightHit | null> {
   const want = callsign.trim().toUpperCase();

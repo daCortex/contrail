@@ -39,6 +39,39 @@ export interface TrackResult {
   live: LiveFlightData | null;
 }
 
+export interface WorldFlight {
+  fid: string;
+  sid: string;
+  uid: string;
+  cs: string; // callsign
+  u: string; // username
+  la: number;
+  lo: number;
+  h: number; // track/heading
+  al: number; // altitude ft
+  gs: number; // ground speed kt
+  ac: string; // aircraft
+  sv: string; // server
+}
+
+export interface WorldData {
+  flights: WorldFlight[];
+  total: number;
+  servers: Record<string, number>;
+}
+
+/** Every active flight across all live sessions (for the global map). */
+export async function fetchWorld(): Promise<WorldData> {
+  const res = await fetch("/api/ifc/world");
+  if (!res.ok) throw new Error("Could not load live flights.");
+  const json = await res.json().catch(() => ({}));
+  return {
+    flights: (json.flights as WorldFlight[]) ?? [],
+    total: json.total ?? 0,
+    servers: json.servers ?? {},
+  };
+}
+
 /** Resolve a username or callsign and return its subject + live flight (if airborne). */
 export async function fetchTrack(query: string): Promise<TrackResult> {
   const res = await fetch("/api/ifc/track", {

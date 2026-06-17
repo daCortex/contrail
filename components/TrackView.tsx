@@ -8,6 +8,10 @@ import { fetchTrack, TrackResult } from "@/lib/ifc";
 import { PlaneIcon, SearchIcon, ArrowRightIcon, TrashIcon, BoltIcon } from "./icons";
 
 const LiveMap = dynamic(() => import("./LiveMap"), { ssr: false });
+const GlobalLiveMap = dynamic(() => import("./GlobalLiveMap"), {
+  ssr: false,
+  loading: () => <div className="flex h-full items-center justify-center text-sm text-dim">Loading map…</div>,
+});
 
 const WATCH_KEY = "contrail.watchlist";
 const POLL_MS = 20000;
@@ -176,6 +180,16 @@ export default function TrackView() {
 
         {subj && !loading && (
           <div className="space-y-4">
+            <button
+              onClick={() => {
+                setResult(null);
+                setQuery("");
+                router.replace("/track");
+              }}
+              className="flex items-center gap-1 text-xs text-haze hover:text-vapor"
+            >
+              ← All live flights
+            </button>
             <div className="card flex flex-wrap items-center justify-between gap-3 p-5">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -245,6 +259,13 @@ export default function TrackView() {
                   : `@${subj.username || subj.query} isn't airborne right now. Check their profile or watch them for later.`}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Default view: the whole player base, live. */}
+        {!subj && !loading && (
+          <div className="card h-[62vh] min-h-[440px] overflow-hidden p-1.5">
+            <GlobalLiveMap />
           </div>
         )}
       </div>
