@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useFlightbook } from "@/lib/store";
 import { computeStats, fmtDurationLong, fmtKm } from "@/lib/stats";
 import { Flight, NewFlight } from "@/lib/types";
@@ -129,6 +130,20 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Link
+              href="/track"
+              className="hidden rounded-full border border-[color:var(--color-line)] px-3 py-1.5 text-xs text-haze hover:text-vapor sm:block"
+            >
+              Track
+            </Link>
+            {ifc.connected && ifc.username && (
+              <Link
+                href={`/u/${encodeURIComponent(ifc.username)}`}
+                className="hidden rounded-full border border-[color:var(--color-line)] px-3 py-1.5 text-xs text-haze hover:text-vapor sm:block"
+              >
+                Profile
+              </Link>
+            )}
             {flights.length > 0 && (
               <button
                 onClick={() => setWrappedOpen(true)}

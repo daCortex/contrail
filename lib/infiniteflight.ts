@@ -204,6 +204,21 @@ export async function findLiveFlight(userId: string): Promise<LiveFlightHit | nu
   return results.find(Boolean) ?? null;
 }
 
+/** Find a live flight by exact callsign (case-insensitive) across all sessions. */
+export async function findLiveByCallsign(callsign: string): Promise<LiveFlightHit | null> {
+  const want = callsign.trim().toUpperCase();
+  if (!want) return null;
+  const sessions = await getSessions();
+  const results = await Promise.all(
+    sessions.map(async (s) => {
+      const flights = await getSessionFlights(s.id);
+      const hit = flights.find((f) => (f.callsign || "").trim().toUpperCase() === want);
+      return hit ? { ...hit, sessionId: s.id, sessionName: s.name } : null;
+    })
+  );
+  return results.find(Boolean) ?? null;
+}
+
 export interface LatLon {
   lat: number;
   lon: number;

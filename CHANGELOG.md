@@ -1,5 +1,14 @@
 # Changelog
 
+**v1.8 — June 16, 2026**
+
+✨ **New**
+- Live tracker — follow any Infinite Flight pilot by IFC username or live callsign, with real position, telemetry, planned route, and flown track, plus a watchlist and a shareable link
+- Public profiles at /u/your-username — anyone's real career stats, route map, statistics, achievements, and a "live now" panel, all pulled fresh from Infinite Flight
+- Editable profile — add a description and ongoing challenges (each with a link to its IFC thread); your bio saves locally and travels in your share link so others can see it
+
+---
+
 **v1.7 — June 16, 2026**
 
 ✨ **New**

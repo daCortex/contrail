@@ -26,6 +26,31 @@ export interface LiveFlightData {
   track: LatLon[];
 }
 
+export interface TrackSubject {
+  type: "username" | "callsign";
+  query: string;
+  username: string | null;
+  userId: string;
+  callsign?: string | null;
+}
+
+export interface TrackResult {
+  subject: TrackSubject;
+  live: LiveFlightData | null;
+}
+
+/** Resolve a username or callsign and return its subject + live flight (if airborne). */
+export async function fetchTrack(query: string): Promise<TrackResult> {
+  const res = await fetch("/api/ifc/track", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json?.error || "Could not find that user or callsign.");
+  return json as TrackResult;
+}
+
 /** Check whether the pilot is flying right now; returns null if not airborne. */
 export async function fetchLive(userId: string): Promise<LiveFlightData | null> {
   const res = await fetch("/api/ifc/live", {
