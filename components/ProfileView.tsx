@@ -7,7 +7,15 @@ import { useSearchParams } from "next/navigation";
 import { connectIFC, syncIFC } from "@/lib/ifc";
 import { IFCProfile, Flight, NewFlight } from "@/lib/types";
 import { computeStats, fmtDurationLong, fmtKm } from "@/lib/stats";
-import { ProfileBio, loadBio, decodeBio, bioHasContent, safeUrl } from "@/lib/profile";
+import {
+  ProfileBio,
+  loadBio,
+  decodeBio,
+  bioHasContent,
+  safeUrl,
+  fetchRemoteProfile,
+  syncRemoteStats,
+} from "@/lib/profile";
 import StatsPanel from "./StatsPanel";
 import Achievements from "./Achievements";
 import LivePanel from "./LivePanel";
@@ -65,13 +73,50 @@ export default function ProfileView({ username }: { username: string }) {
     };
   }, [username]);
 
-  // Bio: prefer the encoded copy in the URL, else the owner's local copy.
+  // Bio: prefer the encoded copy in the URL, else the saved server profile,
+  // else the owner's local copy.
   useEffect(() => {
+    let cancelled = false;
     const enc = search.get("c");
     const fromUrl = enc ? decodeBio(enc) : null;
-    if (fromUrl) setBio(fromUrl);
-    else if (profile) setBio(loadBio(profile.username));
+    if (fromUrl) {
+      setBio(fromUrl);
+      return;
+    }
+    if (!profile) return;
+    (async () => {
+      const remote = await fetchRemoteProfile(profile.username);
+      if (cancelled) return;
+      if (remote && (remote.description || remote.challenges.length)) {
+        setBio({ description: remote.description, challenges: remote.challenges });
+      } else {
+        setBio(loadBio(profile.username));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [search, profile]);
+
+  // Push derived stats to the leaderboard snapshot once a profile is loaded.
+  useEffect(() => {
+    if (status !== "ready" || !profile) return;
+    syncRemoteStats({
+      username: profile.username,
+      displayName: profile.username,
+      userId: profile.userId,
+      stats: {
+        grade: profile.grade,
+        flights: stats.totalFlights,
+        minutes: stats.totalMinutes,
+        distanceKm: stats.totalDistanceKm,
+        countries: stats.uniqueCountries,
+        airports: stats.uniqueAirports,
+        aircraftTypes: stats.uniqueAircraft,
+        landings: stats.totalLandings,
+      },
+    });
+  }, [status, profile, stats]);
 
   if (status === "error") {
     return (
@@ -247,6 +292,7 @@ export default function ProfileView({ username }: { username: string }) {
           open={editing}
           onClose={() => setEditing(false)}
           username={p.username}
+          userId={p.userId}
           bio={bio}
           onSave={setBio}
         />

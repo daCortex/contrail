@@ -136,6 +136,12 @@ export default function Home() {
             >
               Track
             </Link>
+            <Link
+              href="/leaderboard"
+              className="hidden rounded-full border border-[color:var(--color-line)] px-3 py-1.5 text-xs text-haze hover:text-vapor sm:block"
+            >
+              Leaderboard
+            </Link>
             {ifc.connected && ifc.username && (
               <Link
                 href={`/u/${encodeURIComponent(ifc.username)}`}

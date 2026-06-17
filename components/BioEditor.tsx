@@ -9,6 +9,7 @@ import {
   encodeBio,
   uid,
   safeUrl,
+  saveRemoteBio,
 } from "@/lib/profile";
 import { CloseIcon, TrashIcon, PlusIcon } from "./icons";
 
@@ -16,20 +17,27 @@ export default function BioEditor({
   open,
   onClose,
   username,
+  userId,
   bio,
   onSave,
 }: {
   open: boolean;
   onClose: () => void;
   username: string;
+  userId: string;
   bio: ProfileBio | null;
   onSave: (b: ProfileBio) => void;
 }) {
   const [draft, setDraft] = useState<ProfileBio>(EMPTY_BIO);
   const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
-    if (open) setDraft(bio ? { ...bio, challenges: [...bio.challenges] } : EMPTY_BIO);
+    if (open) {
+      setDraft(bio ? { ...bio, challenges: [...bio.challenges] } : EMPTY_BIO);
+      setErr("");
+    }
   }, [open, bio]);
 
   if (!open) return null;
@@ -49,18 +57,31 @@ export default function BioEditor({
   const removeChallenge = (id: string) =>
     setDraft((d) => ({ ...d, challenges: d.challenges.filter((c) => c.id !== id) }));
 
-  const persist = () => {
+  // Save locally always; try the server (persistent + visible to everyone).
+  const persist = async (): Promise<boolean> => {
     saveBio(username, draft);
     onSave(draft);
+    setErr("");
+    try {
+      await saveRemoteBio({ username, displayName: username, userId, bio: draft });
+      return true;
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not save to the server.");
+      return false;
+    }
   };
 
-  const save = () => {
-    persist();
-    onClose();
+  const save = async () => {
+    setSaving(true);
+    const ok = await persist();
+    setSaving(false);
+    if (ok) onClose();
   };
 
-  const copyLink = () => {
-    persist();
+  const copyLink = async () => {
+    setSaving(true);
+    await persist();
+    setSaving(false);
     const enc = encodeBio(draft);
     const url = `${window.location.origin}/u/${encodeURIComponent(username)}${enc ? `?c=${enc}` : ""}`;
     navigator.clipboard?.writeText(url);
@@ -153,11 +174,18 @@ export default function BioEditor({
           })}
         </div>
 
+        {err && (
+          <div className="mt-4 rounded-lg border border-[color:var(--color-rose)]/40 bg-[color:var(--color-rose)]/8 px-3 py-2 text-xs text-rose">
+            {err}
+          </div>
+        )}
+
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
             onClick={copyLink}
-            className="rounded-lg border border-[color:var(--color-line)] px-4 py-2 text-sm text-haze hover:border-[color:var(--color-trail)]/40 hover:text-trail-soft"
+            disabled={saving}
+            className="rounded-lg border border-[color:var(--color-line)] px-4 py-2 text-sm text-haze hover:border-[color:var(--color-trail)]/40 hover:text-trail-soft disabled:opacity-50"
           >
             {copied ? "Link copied ✓" : "Copy share link"}
           </button>
@@ -169,15 +197,15 @@ export default function BioEditor({
             >
               Cancel
             </button>
-            <button type="submit" className="btn-trail rounded-lg px-5 py-2 text-sm">
-              Save
+            <button type="submit" disabled={saving} className="btn-trail rounded-lg px-5 py-2 text-sm disabled:opacity-60">
+              {saving ? "Saving…" : "Save"}
             </button>
           </div>
         </div>
 
         <p className="mt-4 text-[11px] leading-relaxed text-dim">
-          Your description and challenges are saved on this device and embedded in your share link so
-          others can see them. Live stats and your map are always pulled fresh from Infinite Flight.
+          Your profile is saved to Contrail so anyone visiting your page sees it. Live stats and your
+          map are always pulled fresh from Infinite Flight.
         </p>
       </form>
     </div>
