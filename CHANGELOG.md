@@ -1,5 +1,16 @@
 # Changelog
 
+**v1.9 — June 16, 2026**
+
+✨ **New**
+- Profiles are now persistent — your description and ongoing challenges save to Contrail, so anyone visiting your page sees them (no share-link needed)
+- Leaderboards — rank pilots by distance, flights, hours, countries, airports, aircraft types, and landings; you join the board by opening your profile
+
+🔧 **Improved**
+- Editing your profile is protected — once claimed on a device, only that device can change it
+
+---
+
 **v1.8 — June 16, 2026**
 
 ✨ **New**
