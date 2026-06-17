@@ -11,6 +11,7 @@ import FlightList from "@/components/FlightList";
 import ConnectIFC from "@/components/ConnectIFC";
 import StatsPanel from "@/components/StatsPanel";
 import Achievements from "@/components/Achievements";
+import Challenges from "@/components/Challenges";
 import YearInReview from "@/components/YearInReview";
 import LivePanel from "@/components/LivePanel";
 import FlightDetail from "@/components/FlightDetail";
@@ -38,7 +39,7 @@ const GlobeMap = dynamic(() => import("@/components/GlobeMap"), {
   ),
 });
 
-type Tab = "map" | "stats" | "awards" | "logbook";
+type Tab = "map" | "stats" | "awards" | "challenges" | "logbook";
 type MapMode = "routes" | "globe" | "countries";
 const SIX_HOURS = 6 * 60 * 60 * 1000;
 
@@ -221,6 +222,7 @@ export default function Home() {
               ["map", "Map"],
               ["stats", "Statistics"],
               ["awards", "Awards"],
+              ["challenges", "Challenges"],
               ["logbook", "Logbook"],
             ] as [Tab, string][]
           ).map(([t, label]) => (
@@ -301,6 +303,8 @@ export default function Home() {
       {tab === "stats" && <StatsPanel stats={stats} />}
 
       {tab === "awards" && <Achievements stats={stats} flights={flights} />}
+
+      {tab === "challenges" && <Challenges flights={flights} />}
 
       {tab === "logbook" && (
         <div className="space-y-4">

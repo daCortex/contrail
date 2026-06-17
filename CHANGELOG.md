@@ -1,5 +1,12 @@
 # Changelog
 
+**v1.13 — June 16, 2026**
+
+✨ **New**
+- Challenges — create a goal (like a World Conquest), hand-pick flights from your logbook, and get the whole dashboard scoped to just those flights: a map, countries map, stats, and awards, plus a progress bar toward your target (countries, airports, flights, or distance) and an optional IFC thread link
+
+---
+
 **v1.12 — June 16, 2026**
 
 🔧 **Improved**
