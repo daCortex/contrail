@@ -4,17 +4,28 @@ import dynamic from "next/dynamic";
 import { Flight } from "@/lib/types";
 import { resolvePoint } from "@/lib/airports";
 import { fmtDurationLong, fmtKm } from "@/lib/stats";
+import { CheckIcon, BoltIcon } from "./icons";
 
 const RouteMap = dynamic(() => import("./RouteMap"), { ssr: false });
+
+interface ChallengeRef {
+  id: string;
+  name: string;
+  flightIds: string[];
+}
 
 export default function FlightDetail({
   flight,
   onClose,
   onEdit,
+  challenges,
+  onToggleChallenge,
 }: {
   flight: Flight | null;
   onClose: () => void;
   onEdit: (f: Flight) => void;
+  challenges?: ChallengeRef[];
+  onToggleChallenge?: (flightId: string, challengeId: string) => void;
 }) {
   if (!flight) return null;
   const f = flight;
@@ -100,6 +111,46 @@ export default function FlightDetail({
           <div className="border-t border-[color:var(--color-line)] px-5 py-4 text-sm text-haze">
             <span className="text-dim">Note · </span>
             {f.note}
+          </div>
+        )}
+
+        {/* Add to challenge */}
+        {challenges && onToggleChallenge && (
+          <div className="border-t border-[color:var(--color-line)] p-5">
+            <div className="mb-2.5 flex items-center gap-2 text-xs font-semibold tracking-wide text-haze uppercase">
+              <BoltIcon size={14} /> Add to challenge
+            </div>
+            {challenges.length === 0 ? (
+              <p className="text-xs text-dim">
+                No challenges yet — create one in the <span className="text-haze">Challenges</span> tab, then add this flight here.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {challenges.map((c) => {
+                  const on = c.flightIds.includes(f.id);
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => onToggleChallenge(f.id, c.id)}
+                      className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition ${
+                        on
+                          ? "border-[color:var(--color-trail)]/60 bg-[color:var(--color-trail)]/12 text-trail-soft"
+                          : "border-[color:var(--color-line)] text-haze hover:text-vapor"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+                          on ? "border-[color:var(--color-trail)] bg-[color:var(--color-trail)] text-[#04121a]" : "border-[color:var(--color-dim)]"
+                        }`}
+                      >
+                        {on && <CheckIcon size={11} />}
+                      </span>
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>

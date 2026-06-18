@@ -1,5 +1,13 @@
 # Changelog
 
+**v1.15 — June 16, 2026**
+
+🔧 **Improved**
+- Adding flights to a challenge is now obvious — every logbook flight shows a clear "Challenge" button (and "In challenge" once added), and opening a flight has an "Add to challenge" section right there
+- Clearer wording on the challenge page ("Add flights from logbook")
+
+---
+
 **v1.14 — June 16, 2026**
 
 ✨ **New**

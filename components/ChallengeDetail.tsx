@@ -80,7 +80,7 @@ export default function ChallengeDetail({
               onClick={() => setPickerOpen(true)}
               className="btn-trail flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm"
             >
-              <PlusIcon size={15} strokeWidth={2.2} /> Add flights
+              <PlusIcon size={15} strokeWidth={2.2} /> Add flights from logbook
             </button>
             <button onClick={onEdit} className="rounded-full border border-[color:var(--color-line)] p-2 text-haze hover:text-vapor" title="Edit">
               <PencilIcon size={15} />

@@ -380,6 +380,8 @@ export default function Home() {
           setDetail(null);
           openEdit(f);
         }}
+        challenges={challengesApi.challenges}
+        onToggleChallenge={toggleFlightInChallenge}
       />
 
       {/* Toast */}

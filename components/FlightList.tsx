@@ -141,20 +141,26 @@ export default function FlightList({
                     {f.source === "ifc" && (
                       <span className="chip mr-1 rounded px-1.5 py-0.5 text-[9px]">IFC</span>
                     )}
-                    {canChallenge && (
-                      <div className="relative">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuFor(menuFor === f.id ? null : f.id);
-                          }}
-                          className={`rounded-md p-1.5 transition hover:bg-[color:var(--color-line)] ${
-                            menuFor === f.id ? "text-trail-soft opacity-100" : "text-haze opacity-0 group-hover:opacity-100"
-                          }`}
-                          title="Add to challenge"
-                        >
-                          <BoltIcon size={14} />
-                        </button>
+                    {canChallenge &&
+                      (() => {
+                        const inAny = challenges!.some((c) => c.flightIds.includes(f.id));
+                        return (
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuFor(menuFor === f.id ? null : f.id);
+                              }}
+                              className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] transition ${
+                                inAny || menuFor === f.id
+                                  ? "border-[color:var(--color-trail)]/50 bg-[color:var(--color-trail)]/10 text-trail-soft"
+                                  : "border-[color:var(--color-line)] text-haze hover:text-vapor"
+                              }`}
+                              title="Add to challenge"
+                            >
+                              <BoltIcon size={12} />
+                              {inAny ? "In challenge" : "Challenge"}
+                            </button>
                         {menuFor === f.id && (
                           <div
                             ref={menuRef}
@@ -163,7 +169,9 @@ export default function FlightList({
                           >
                             <div className="px-1.5 py-1 text-[10px] tracking-wide text-dim uppercase">Add to challenge</div>
                             {challenges!.length === 0 ? (
-                              <div className="px-1.5 py-2 text-xs text-dim">No challenges yet.</div>
+                              <div className="px-1.5 py-2 text-xs text-dim">
+                                No challenges yet. Create one in the Challenges tab.
+                              </div>
                             ) : (
                               challenges!.map((c) => {
                                 const on = c.flightIds.includes(f.id);
@@ -187,8 +195,9 @@ export default function FlightList({
                             )}
                           </div>
                         )}
-                      </div>
-                    )}
+                          </div>
+                        );
+                      })()}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
