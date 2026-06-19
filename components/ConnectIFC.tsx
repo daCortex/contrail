@@ -19,7 +19,7 @@ export default function ConnectIFC({
   onClose: () => void;
   ifc: IFCConnection;
   setIfc: (updater: (prev: IFCConnection) => IFCConnection) => void;
-  onImport: (flights: NewFlight[]) => void;
+  onImport: (flights: NewFlight[]) => number;
   onLogout?: () => void;
 }) {
   const [username, setUsername] = useState(ifc.username);
@@ -42,6 +42,7 @@ export default function ConnectIFC({
         username: profile.username,
         userId: profile.userId,
         profile,
+        autoSync: true, // keep the logbook current by default
       }));
       setMsg(`Linked @${profile.username}.`);
       await sync(profile.userId, true);
@@ -62,13 +63,17 @@ export default function ConnectIFC({
     }
     try {
       const r = await syncIFC(uid, 15);
-      onImport(r.flights);
+      const added = onImport(r.flights);
       setIfc((prev) => ({ ...prev, lastSync: Date.now() }));
-      setMsg(
-        r.count
-          ? `Imported ${r.count} flights — ${r.mapped} with a route to map (of ${r.totalCount.toLocaleString()} in your logbook).`
-          : "No flights found in your logbook yet."
-      );
+      if (added > 0) {
+        setMsg(`Added ${added} new flight${added === 1 ? "" : "s"} to your logbook.`);
+      } else if (r.count > 0) {
+        setMsg(
+          "You're already up to date. A just-finished flight can take a few minutes to appear in Infinite Flight's logbook — sync again shortly."
+        );
+      } else {
+        setMsg("No flights found in your Infinite Flight logbook yet.");
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Sync failed.");
     } finally {

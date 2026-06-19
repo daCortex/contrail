@@ -44,7 +44,8 @@ const GlobeMap = dynamic(() => import("@/components/GlobeMap"), {
 
 type Tab = "map" | "stats" | "awards" | "challenges" | "logbook";
 type MapMode = "routes" | "globe" | "countries";
-const SIX_HOURS = 6 * 60 * 60 * 1000;
+// Auto-sync on load, but not more than once every couple of minutes.
+const SYNC_GATE = 2 * 60 * 1000;
 
 export default function Home() {
   const {
@@ -90,15 +91,15 @@ export default function Home() {
   useEffect(() => {
     if (!ready || autoRan.current) return;
     if (ifc.connected && ifc.autoSync && ifc.userId) {
-      const stale = !ifc.lastSync || Date.now() - ifc.lastSync > SIX_HOURS;
+      const stale = !ifc.lastSync || Date.now() - ifc.lastSync > SYNC_GATE;
       if (stale) {
         autoRan.current = true;
         (async () => {
           try {
             const r = await syncIFC(ifc.userId, 15);
-            addMany(r.flights);
+            const added = addMany(r.flights);
             setIfc((prev) => ({ ...prev, lastSync: Date.now() }));
-            if (r.count) flash(`Synced ${r.count} flights from your Infinite Flight logbook.`);
+            if (added) flash(`Logged ${added} new flight${added === 1 ? "" : "s"} from Infinite Flight.`);
           } catch {
             /* silent on auto-sync */
           }
@@ -128,6 +129,7 @@ export default function Home() {
         username: profile.username,
         userId: profile.userId,
         profile,
+        autoSync: true, // keep the logbook current by default
       }));
       flash(`Logged in as @${profile.username}.`);
     } catch {

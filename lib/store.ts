@@ -78,15 +78,17 @@ export function useFlightbook() {
     return flight;
   }, []);
 
-  const addMany = useCallback((items: NewFlight[], source: "manual" | "ifc" = "ifc") => {
-    setFlights((prev) => {
-      // De-dupe: prefer the stable IF flight id, else date+route+flightNumber.
-      const key = (f: { extId?: string; date: string; from: string; to: string; flightNumber: string }) =>
-        f.extId ? `ext:${f.extId}` : `${f.date}|${f.from}|${f.to}|${f.flightNumber}`;
-      const seen = new Set(prev.map(key));
+  // De-dupe key: prefer the stable IF flight id, else date+route+flightNumber.
+  const dedupeKey = (f: { extId?: string; date: string; from: string; to: string; flightNumber: string }) =>
+    f.extId ? `ext:${f.extId}` : `${f.date}|${f.from}|${f.to}|${f.flightNumber}`;
+
+  /** Add flights, skipping any already in the logbook. Returns how many were new. */
+  const addMany = useCallback(
+    (items: NewFlight[], source: "manual" | "ifc" = "ifc"): number => {
+      const seen = new Set(flights.map(dedupeKey));
       const fresh: Flight[] = [];
       for (const nf of items) {
-        const k = key(nf);
+        const k = dedupeKey(nf);
         if (seen.has(k)) continue;
         seen.add(k);
         fresh.push({
@@ -97,9 +99,18 @@ export function useFlightbook() {
           createdAt: Date.now(),
         });
       }
-      return [...fresh, ...prev].sort((a, b) => b.date.localeCompare(a.date));
-    });
-  }, []);
+      if (fresh.length) {
+        setFlights((prev) => {
+          // Re-check against the latest state in case it changed since render.
+          const seenPrev = new Set(prev.map(dedupeKey));
+          const toAdd = fresh.filter((f) => !seenPrev.has(dedupeKey(f)));
+          return [...toAdd, ...prev].sort((a, b) => b.date.localeCompare(a.date));
+        });
+      }
+      return fresh.length;
+    },
+    [flights]
+  );
 
   const updateFlight = useCallback((id: string, patch: Partial<Flight>) => {
     setFlights((prev) =>

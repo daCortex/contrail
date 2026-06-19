@@ -1,5 +1,13 @@
 # Changelog
 
+**v1.16 — June 16, 2026**
+
+🐞 **Fixed**
+- Your most recent flights now show up reliably — Contrail re-syncs your logbook each time you open it (it used to wait up to 6 hours), and auto-sync is on by default once you connect
+- Syncing now tells you exactly what happened ("Added 2 new flights" or "you're up to date") and notes that a just-finished flight can take a few minutes to appear in Infinite Flight's logbook
+
+---
+
 **v1.15 — June 16, 2026**
 
 🔧 **Improved**
