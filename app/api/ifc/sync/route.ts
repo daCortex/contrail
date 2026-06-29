@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ifConfigured, getUserFlights, resolveAircraft } from "@/lib/infiniteflight";
 import { resolveAirport } from "@/lib/if-airports";
-import { haversineKm } from "@/lib/geo";
+import { haversineKm, estimateDurationMin } from "@/lib/geo";
 import { NewFlight } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
       to: b?.code || to,
       fromGeo: a ? { lat: a.lat, lon: a.lon, cc: a.cc, city: a.city, country: a.country } : undefined,
       toGeo: b ? { lat: b.lat, lon: b.lon, cc: b.cc, city: b.city, country: b.country } : undefined,
-      durationMin: Math.round(f.totalTime ?? 0),
+      durationMin: Math.round(f.totalTime ?? 0) || estimateDurationMin(distanceKm),
       distanceKm,
       seat: "",
       cabin: "",

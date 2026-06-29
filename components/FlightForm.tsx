@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { Flight, NewFlight } from "@/lib/types";
 import { AIRCRAFT } from "@/lib/aircraft";
-import { distanceFor } from "@/lib/store";
-import { fmtKm } from "@/lib/stats";
+import { haversineKm, estimateDurationMin } from "@/lib/geo";
+import { fmtKm, fmtDuration } from "@/lib/stats";
+import { resolveAirports, toLite } from "@/lib/airport-client";
 import AirportInput from "./AirportInput";
 
 const EMPTY: NewFlight = {
@@ -59,13 +60,29 @@ export default function FlightForm({
 
   if (!open) return null;
 
-  const dist = distanceFor(f.from, f.to);
+  // Distance comes from the resolved airport coordinates (full dataset), so any
+  // ICAO/IATA the user picks computes a real distance — never 0.
+  const dist =
+    f.fromGeo && f.toGeo ? Math.round(haversineKm(f.fromGeo, f.toGeo)) : f.distanceKm || 0;
+  const enteredMin = (parseInt(hh || "0", 10) || 0) * 60 + (parseInt(mm || "0", 10) || 0);
+  const estMin = enteredMin || estimateDurationMin(dist);
   const set = (patch: Partial<NewFlight>) => setF((prev) => ({ ...prev, ...patch }));
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const durationMin = (parseInt(hh || "0", 10) || 0) * 60 + (parseInt(mm || "0", 10) || 0);
-    onSave({ ...f, durationMin, distanceKm: dist }, editing?.id);
+    // If the user typed codes without picking from the dropdown, resolve their
+    // coordinates now so the flight still gets a real distance (never 0 km).
+    let fromGeo = f.fromGeo;
+    let toGeo = f.toGeo;
+    if ((!fromGeo || !toGeo) && f.from && f.to) {
+      const m = await resolveAirports([f.from, f.to]);
+      if (!fromGeo && m[f.from.toUpperCase()]) fromGeo = toLite(m[f.from.toUpperCase()]);
+      if (!toGeo && m[f.to.toUpperCase()]) toGeo = toLite(m[f.to.toUpperCase()]);
+    }
+    const distanceKm =
+      fromGeo && toGeo ? Math.round(haversineKm(fromGeo, toGeo)) : f.distanceKm || 0;
+    const durationMin = enteredMin || estimateDurationMin(distanceKm);
+    onSave({ ...f, fromGeo, toGeo, durationMin, distanceKm }, editing?.id);
     onClose();
   };
 
@@ -93,21 +110,36 @@ export default function FlightForm({
         </div>
 
         {/* Route */}
-        <div className="mb-4 grid grid-cols-[1fr_auto_1fr] items-start gap-3">
+        <div className="mb-2 grid grid-cols-[1fr_auto_1fr] items-start gap-3">
           <div>
-            <label className="mb-1 block text-xs text-haze">From</label>
-            <AirportInput value={f.from} onChange={(c) => set({ from: c })} placeholder="LHR" />
+            <label className="mb-1 block text-xs text-haze">From — any airport, ICAO or IATA</label>
+            <AirportInput
+              value={f.from}
+              onChange={(c, geo) => set({ from: c, fromGeo: geo })}
+              placeholder="Search e.g. LHR, EGLL, London"
+            />
           </div>
           <div className="pt-7 text-trail">→</div>
           <div>
-            <label className="mb-1 block text-xs text-haze">To</label>
-            <AirportInput value={f.to} onChange={(c) => set({ to: c })} placeholder="JFK" />
+            <label className="mb-1 block text-xs text-haze">To — any airport, ICAO or IATA</label>
+            <AirportInput
+              value={f.to}
+              onChange={(c, geo) => set({ to: c, toGeo: geo })}
+              placeholder="Search e.g. JFK, KJFK, New York"
+            />
           </div>
         </div>
 
         {dist > 0 && (
           <div className="mb-4 text-xs text-trail-soft">
-            Great-circle distance: <span className="font-mono">{fmtKm(dist)} km</span>
+            <span className="font-mono">{fmtKm(dist)} km</span>
+            <span className="text-dim"> · </span>
+            {enteredMin ? (
+              <span className="font-mono">{fmtDuration(enteredMin)}</span>
+            ) : (
+              <span className="font-mono">≈ {fmtDuration(estMin)}</span>
+            )}
+            {!enteredMin && <span className="text-dim"> (estimated — set a time below to override)</span>}
           </div>
         )}
 

@@ -1,12 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Flight, IFCConnection, NewFlight } from "./types";
 import { findAirport } from "./airports";
-import { haversineKm } from "./geo";
+import { haversineKm, estimateDurationMin } from "./geo";
+import { resolveAirports } from "./airport-client";
 
 const FLIGHTS_KEY = "contrail.flights.v1";
 const IFC_KEY = "contrail.ifc.v1";
+
+// AirportHit (from /api/airports) → the AirportLite we store on a flight.
+function lite(a?: { lat: number; lon: number; cc: string; city: string; country: string }) {
+  return a ? { lat: a.lat, lon: a.lon, cc: a.cc, city: a.city, country: a.country } : undefined;
+}
 
 const DEFAULT_IFC: IFCConnection = {
   connected: false,
@@ -66,6 +72,42 @@ export function useFlightbook() {
     if (ready) save(IFC_KEY, ifc);
   }, [ifc, ready]);
 
+  // One-time backfill: any flight with a route but 0 km (older imports / manual
+  // logs from when only a few airports were known) gets its airports resolved
+  // against the full dataset, then a real distance and an estimated time.
+  const backfilledRef = useRef(false);
+  useEffect(() => {
+    if (!ready || backfilledRef.current) return;
+    const needing = flights.filter(
+      (f) => !f.distanceKm && f.from && f.to && f.from !== f.to && (!f.fromGeo || !f.toGeo)
+    );
+    if (needing.length === 0) {
+      backfilledRef.current = true;
+      return;
+    }
+    backfilledRef.current = true;
+    (async () => {
+      const codes = [...new Set(needing.flatMap((f) => [f.from, f.to]))];
+      const map = await resolveAirports(codes);
+      setFlights((prev) =>
+        prev.map((f) => {
+          if (f.distanceKm || !f.from || !f.to || f.from === f.to) return f;
+          const a = f.fromGeo || lite(map[f.from.toUpperCase()]);
+          const b = f.toGeo || lite(map[f.to.toUpperCase()]);
+          if (!a || !b) return f;
+          const distanceKm = Math.round(haversineKm(a, b));
+          return {
+            ...f,
+            fromGeo: a,
+            toGeo: b,
+            distanceKm,
+            durationMin: f.durationMin || estimateDurationMin(distanceKm),
+          };
+        })
+      );
+    })();
+  }, [ready, flights]);
+
   const addFlight = useCallback((nf: NewFlight, source: "manual" | "ifc" = "manual") => {
     const flight: Flight = {
       ...nf,
@@ -118,9 +160,13 @@ export function useFlightbook() {
         .map((f) => {
           if (f.id !== id) return f;
           const merged = { ...f, ...patch };
-          // Recompute from the route when possible; keep the stored value
-          // (e.g. an IFC import's server-computed distance) otherwise.
-          merged.distanceKm = distanceFor(merged.from, merged.to) || merged.distanceKm;
+          // Prefer resolved coordinates (full dataset) for distance; fall back
+          // to the curated lookup, then the stored value.
+          if (merged.fromGeo && merged.toGeo) {
+            merged.distanceKm = Math.round(haversineKm(merged.fromGeo, merged.toGeo));
+          } else {
+            merged.distanceKm = distanceFor(merged.from, merged.to) || merged.distanceKm;
+          }
           return merged;
         })
         .sort((a, b) => b.date.localeCompare(a.date))

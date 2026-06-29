@@ -1,5 +1,17 @@
 # Changelog
 
+**v1.18 — June 29, 2026**
+
+✨ **New**
+- Every airport on Earth is now searchable — all ~72,000 of them, up from a handful. Search by IATA (LHR), ICAO (EGLL), or just the city name ("london"), and the picker shows both codes plus the city and country so there's no more ICAO/IATA guessing
+- Major hubs surface first: type "sydney" and you get SYD, not a tiny airfield
+
+🐞 **Fixed**
+- No more 0 km flights. Every logged route now computes a real great-circle distance from the airport coordinates, and flights with no recorded time get a sensible estimated flight time (clearly marked, and you can always override it)
+- Older flights that were stuck on 0 km get fixed automatically the next time you open Contrail
+
+---
+
 **v1.17 — June 16, 2026**
 
 🐞 **Fixed**

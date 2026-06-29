@@ -9,6 +9,16 @@ export interface LatLon {
   lon: number;
 }
 
+/**
+ * Estimate block time (minutes) for a flight of `km`: ~800 km/h cruise plus a
+ * fixed ~25 min for taxi, climb, and descent. Used when a flight has a route
+ * but no recorded time. Never returns less than 10 minutes for a real leg.
+ */
+export function estimateDurationMin(km: number): number {
+  if (!km || km <= 0) return 0;
+  return Math.max(10, Math.round((km / 800) * 60 + 25));
+}
+
 /** Haversine great-circle distance in km. */
 export function haversineKm(a: LatLon, b: LatLon): number {
   const dLat = toRad(b.lat - a.lat);
